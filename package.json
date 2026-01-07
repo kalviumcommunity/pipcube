@@ -6,7 +6,8 @@
     "build:dev": "NODE_ENV=development next build",
     "build:staging": "NODE_ENV=staging next build",
     "build:prod": "NODE_ENV=production next build",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "test": "echo \"No tests yet\""  
   },
   "dependencies": {
     "next": "16.1.1",
