@@ -152,3 +152,19 @@ This project uses strict TypeScript, ESLint, Prettier, and Husky to ensure high 
 - Husky pre-commit hooks prevent bad code from being committed
 
 This setup makes the project scalable and maintainable for larger teams.
+
+## 🔐 Environment Variables
+
+| Variable Name | Scope | Purpose |
+|--------------|------|--------|
+| DATABASE_URL | Server | PostgreSQL connection |
+| JWT_SECRET | Server | Token signing |
+| NEXTAUTH_SECRET | Server | Auth encryption |
+| NEXT_PUBLIC_API_BASE_URL | Client | API base URL |
+
+### Setup Instructions
+
+```bash
+cp .env.example .env.local
+# Fill values in .env.local
+npm run dev
