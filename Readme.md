@@ -57,3 +57,17 @@ A balanced solution would be:
 - SSR only for user‑specific or real‑time pages like dashboards
 
 This approach ensures speed, freshness, and scalability.
+
+
+
+## Concept -2 ✅ Environment-Aware Builds & Secrets Management — Summary
+
+This project now supports **development**, **staging**, and **production** environments with isolated configurations.
+We created `.env.development`, `.env.staging`, `.env.production`, and a safe `.env.example` file (no secrets committed).
+
+All real secrets such as database URLs and API keys are stored securely using **GitHub Secrets**, ensuring nothing sensitive exists in the repository. During CI/CD, the correct secrets and configs are injected automatically based on the branch being deployed.
+
+Custom build scripts (`build:dev`, `build:staging`, `build:prod`) ensure each environment uses the right API URLs and database connections. The GitHub Actions workflow handles deployment by loading environment-specific secrets and running the correct build commands.
+
+This setup prevents accidental misuse of dev/staging credentials in production, keeps deployments predictable, and maintains a clean, secure workflow.
+
