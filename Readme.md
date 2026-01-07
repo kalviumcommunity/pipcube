@@ -168,3 +168,14 @@ This setup makes the project scalable and maintainable for larger teams.
 cp .env.example .env.local
 # Fill values in .env.local
 npm run dev
+
+## 🔍 Code Review Checklist
+
+Every Pull Request must ensure:
+
+- Code follows naming conventions and folder structure
+- Functionality tested locally
+- No console errors or warnings
+- ESLint and Prettier checks pass
+- Code is readable and well-commented
+- No secrets or environment variables exposed
