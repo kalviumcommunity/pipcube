@@ -179,3 +179,25 @@ Every Pull Request must ensure:
 - ESLint and Prettier checks pass
 - Code is readable and well-commented
 - No secrets or environment variables exposed
+
+
+## 🐳 Docker & Docker Compose Setup
+
+### Dockerfile
+The Dockerfile builds the Next.js app using Node.js, installs dependencies, builds the app, and runs it on port 3000.
+
+### Docker Compose
+Docker Compose runs three services:
+- Next.js app
+- PostgreSQL database
+- Redis cache
+
+All services run on a shared bridge network and communicate using service names.
+
+### Volumes & Networks
+- A Docker volume persists PostgreSQL data
+- A bridge network enables inter-container communication
+
+### How to Run
+```bash
+docker-compose up --build
