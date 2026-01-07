@@ -141,3 +141,14 @@ When deploying securely, it is important to manage environment variables through
 Deployment failures often occur due to missing environment variables, misconfigured CI/CD pipelines, and old containers continuing to run in production. These issues lead to runtime crashes and inconsistent application versions.
 
 By validating code through pull requests, using proper containerization, injecting environment variables via CI/CD or cloud configuration, and stopping old containers before deploying new ones, deployments become clean, predictable, and reliable.
+
+## Code Quality & Tooling
+
+This project uses strict TypeScript, ESLint, Prettier, and Husky to ensure high code quality.
+
+- Strict TypeScript catches errors at compile time
+- ESLint enforces consistent coding standards
+- Prettier ensures uniform formatting
+- Husky pre-commit hooks prevent bad code from being committed
+
+This setup makes the project scalable and maintainable for larger teams.
