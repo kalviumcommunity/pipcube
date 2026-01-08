@@ -12,14 +12,13 @@
  */
 
 import type { NextRequest } from "next/server";
-import type {
-  Ticket,
-  CreateTicketRequest,
-} from "@/types/api";
+import type { Ticket } from "@/types/api";
 import { getTickets, createTicket, getUserById, getTripById } from "@/lib/mock-data";
-import { validateCreateTicket } from "@/lib/validation";
 import { sendSuccess, sendError } from "@/lib/responseHandler";
 import { ErrorCodes } from "@/lib/errorCodes";
+import { createTicketSchema } from "@/lib/schemas/ticketSchema";
+import { formatZodError } from "@/lib/schemas/zodErrorFormatter";
+import { ZodError } from "zod";
 
 /**
  * GET /api/tickets
@@ -181,26 +180,16 @@ export async function POST(request: NextRequest) {
     // Parse request body
     const body: unknown = await request.json();
 
-    // Validate the input data
-    const validation = validateCreateTicket(body);
-    if (!validation.isValid) {
-      // Return 400 Bad Request if validation fails
-      return sendError(
-        validation.error || "Validation failed",
-        ErrorCodes.VALIDATION_ERROR,
-        400
-      );
-    }
-
-    // Type assertion after validation
-    const ticketData = body as CreateTicketRequest;
+    // Validate the input data using Zod schema
+    // schema.parse() will throw ZodError if validation fails
+    const validatedData = createTicketSchema.parse(body);
 
     // Check if user exists
-    const user = getUserById(ticketData.userId);
+    const user = getUserById(validatedData.userId);
     if (!user) {
       // Return 404 Not Found if user doesn't exist
       return sendError(
-        `User with ID "${ticketData.userId}" not found`,
+        `User with ID "${validatedData.userId}" not found`,
         ErrorCodes.NOT_FOUND,
         404,
         "Cannot create ticket for a non-existent user. Please create the user first."
@@ -208,22 +197,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if trip exists
-    const trip = getTripById(ticketData.tripId);
+    const trip = getTripById(validatedData.tripId);
     if (!trip) {
       // Return 404 Not Found if trip doesn't exist
       return sendError(
-        `Trip with ID "${ticketData.tripId}" not found`,
+        `Trip with ID "${validatedData.tripId}" not found`,
         ErrorCodes.NOT_FOUND,
         404,
         "Cannot create ticket for a non-existent trip."
       );
     }
 
-    // Create the new ticket
+    // Create the new ticket with validated data
+    // Zod ensures all fields are properly typed and validated
     const newTicket = createTicket({
-      userId: ticketData.userId,
-      tripId: ticketData.tripId,
-      seatNumber: ticketData.seatNumber.trim(),
+      userId: validatedData.userId,
+      tripId: validatedData.tripId,
+      seatNumber: validatedData.seatNumber,
       price: trip.price, // Price comes from the trip
     });
 
@@ -234,7 +224,22 @@ export async function POST(request: NextRequest) {
       201
     );
   } catch (error) {
-    // Handle JSON parsing errors or other unexpected errors
+    // Handle Zod validation errors explicitly
+    if (error instanceof ZodError) {
+      // Format Zod errors into structured array
+      const validationErrors = formatZodError(error);
+      
+      return sendError(
+        "Validation Error",
+        ErrorCodes.VALIDATION_ERROR,
+        400,
+        {
+          errors: validationErrors,
+        }
+      );
+    }
+
+    // Handle JSON parsing errors
     if (error instanceof SyntaxError) {
       return sendError(
         "Invalid JSON in request body",
@@ -243,6 +248,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Handle unexpected errors
     return sendError(
       "Failed to create ticket",
       ErrorCodes.INTERNAL_ERROR,
