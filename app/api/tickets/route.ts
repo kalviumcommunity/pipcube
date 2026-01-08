@@ -1,37 +1,38 @@
 /**
- * RESTful API Route: /api/bookings
+ * RESTful API Route: /api/tickets
  *
- * This route handles booking-related operations for the intercity bus ticket system.
+ * This route handles ticket-related operations for the intercity bus ticket cancellation and refund system.
  * It follows REST conventions using HTTP methods:
- * - GET: Retrieve bookings with pagination support
- * - POST: Create a new booking
+ * - GET: Retrieve tickets with pagination support
+ * - POST: Create a new ticket (booking)
  *
- * @module app/api/bookings/route
+ * @module app/api/tickets/route
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import type {
   ApiResponse,
-  Booking,
-  CreateBookingRequest,
+  Ticket,
+  CreateTicketRequest,
   PaginatedResponse,
 } from "@/types/api";
-import { getBookings, createBooking, getUserById } from "@/lib/mock-data";
-import { validateCreateBooking } from "@/lib/validation";
+import { getTickets, createTicket, getUserById, getTripById } from "@/lib/mock-data";
+import { validateCreateTicket } from "@/lib/validation";
 
 /**
- * GET /api/bookings
+ * GET /api/tickets
  *
- * Retrieves a paginated list of bookings.
+ * Retrieves a paginated list of tickets.
  * Supports query parameters:
  * - page: Page number (default: 1)
  * - limit: Number of items per page (default: 10, max: 100)
+ * - userId: Optional filter by user ID
  *
  * @param {NextRequest} request - The incoming request with query parameters
- * @returns {Promise<NextResponse>} JSON response containing paginated bookings
- * @status {200} Success - Returns paginated list of bookings
+ * @returns {Promise<NextResponse>} JSON response containing paginated tickets
+ * @status {200} Success - Returns paginated list of tickets
  *
- * Example request: GET /api/bookings?page=1&limit=10
+ * Example request: GET /api/tickets?page=1&limit=10&userId=1
  *
  * Example response:
  * {
@@ -40,9 +41,7 @@ import { validateCreateBooking } from "@/lib/validation";
  *     {
  *       "id": "1",
  *       "userId": "1",
- *       "route": "New York to Boston",
- *       "departureDate": "2024-12-20",
- *       "departureTime": "10:00 AM",
+ *       "tripId": "1",
  *       "seatNumber": "A12",
  *       "price": 45.99,
  *       "status": "confirmed",
@@ -59,7 +58,7 @@ import { validateCreateBooking } from "@/lib/validation";
  */
 export async function GET(
   request: NextRequest
-): Promise<NextResponse<PaginatedResponse<Booking>>> {
+): Promise<NextResponse<PaginatedResponse<Ticket>>> {
   try {
     // Get query parameters from URL
     const searchParams = request.nextUrl.searchParams;
@@ -80,7 +79,7 @@ export async function GET(
             totalPages: 0,
           },
           error: "Invalid page parameter. Must be a positive integer.",
-        } as PaginatedResponse<Booking>,
+        } as PaginatedResponse<Ticket>,
         { status: 400 }
       );
     }
@@ -94,23 +93,31 @@ export async function GET(
       limit = 100; // Cap at 100 to prevent performance issues
     }
 
-    // Get all bookings from mock data
-    const allBookings = getBookings();
+    // Get filter parameter
+    const userIdParam = searchParams.get("userId");
+
+    // Get all tickets from mock data
+    let allTickets = getTickets();
+
+    // Filter by userId if provided
+    if (userIdParam) {
+      allTickets = allTickets.filter((ticket) => ticket.userId === userIdParam);
+    }
 
     // Calculate pagination values
-    const total = allBookings.length;
+    const total = allTickets.length;
     const totalPages = Math.ceil(total / limit);
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
 
     // Slice the array to get the requested page
-    const paginatedBookings = allBookings.slice(startIndex, endIndex);
+    const paginatedTickets = allTickets.slice(startIndex, endIndex);
 
     // Return success response with paginated data
     return NextResponse.json(
       {
         success: true,
-        data: paginatedBookings,
+        data: paginatedTickets,
         pagination: {
           page,
           limit,
@@ -132,35 +139,32 @@ export async function GET(
           total: 0,
           totalPages: 0,
         },
-        error: "Failed to retrieve bookings",
+        error: "Failed to retrieve tickets",
         message: error instanceof Error ? error.message : "Unknown error",
-      } as PaginatedResponse<Booking>,
+      } as PaginatedResponse<Ticket>,
       { status: 500 }
     );
   }
 }
 
 /**
- * POST /api/bookings
+ * POST /api/tickets
  *
- * Creates a new booking in the system.
- * Validates input and checks if the user exists before creating a booking.
+ * Creates a new ticket in the system.
+ * Validates input and checks if the user and trip exist before creating a ticket.
  *
  * Request body:
  * {
  *   "userId": "string" (required),
- *   "route": "string" (required),
- *   "departureDate": "string" (required),
- *   "departureTime": "string" (required),
- *   "seatNumber": "string" (required),
- *   "price": "number" (required, must be positive)
+ *   "tripId": "string" (required),
+ *   "seatNumber": "string" (required)
  * }
  *
- * @param {NextRequest} request - The incoming request containing booking data
- * @returns {Promise<NextResponse>} JSON response with created booking or error
- * @status {201} Created - Booking successfully created
+ * @param {NextRequest} request - The incoming request containing ticket data
+ * @returns {Promise<NextResponse>} JSON response with created ticket or error
+ * @status {201} Created - Ticket successfully created
  * @status {400} Bad Request - Invalid input data
- * @status {404} Not Found - User not found
+ * @status {404} Not Found - User or trip not found
  *
  * Example success response (201):
  * {
@@ -168,15 +172,13 @@ export async function GET(
  *   "data": {
  *     "id": "6",
  *     "userId": "1",
- *     "route": "New York to Philadelphia",
- *     "departureDate": "2024-12-21",
- *     "departureTime": "09:00 AM",
+ *     "tripId": "1",
  *     "seatNumber": "F10",
  *     "price": 35.50,
  *     "status": "confirmed",
  *     "createdAt": "2024-12-15T10:00:00.000Z"
  *   },
- *   "message": "Booking created successfully"
+ *   "message": "Ticket created successfully"
  * }
  *
  * Example error response (400):
@@ -188,18 +190,18 @@ export async function GET(
  * Example error response (404):
  * {
  *   "success": false,
- *   "error": "User not found"
+ *   "error": "User with ID \"999\" not found"
  * }
  */
 export async function POST(
   request: NextRequest
-): Promise<NextResponse<ApiResponse<Booking>>> {
+): Promise<NextResponse<ApiResponse<Ticket>>> {
   try {
     // Parse request body
     const body: unknown = await request.json();
 
     // Validate the input data
-    const validation = validateCreateBooking(body);
+    const validation = validateCreateTicket(body);
     if (!validation.isValid) {
       // Return 400 Bad Request if validation fails
       return NextResponse.json(
@@ -212,39 +214,51 @@ export async function POST(
     }
 
     // Type assertion after validation
-    const bookingData = body as CreateBookingRequest;
+    const ticketData = body as CreateTicketRequest;
 
-    // Check if user exists (userId validation)
-    const user = getUserById(bookingData.userId);
+    // Check if user exists
+    const user = getUserById(ticketData.userId);
     if (!user) {
       // Return 404 Not Found if user doesn't exist
       return NextResponse.json(
         {
           success: false,
-          error: `User with ID "${bookingData.userId}" not found`,
+          error: `User with ID "${ticketData.userId}" not found`,
           message:
-            "Cannot create booking for a non-existent user. Please create the user first.",
+            "Cannot create ticket for a non-existent user. Please create the user first.",
         },
         { status: 404 }
       );
     }
 
-    // Create the new booking
-    const newBooking = createBooking({
-      userId: bookingData.userId,
-      route: bookingData.route.trim(),
-      departureDate: bookingData.departureDate.trim(),
-      departureTime: bookingData.departureTime.trim(),
-      seatNumber: bookingData.seatNumber.trim(),
-      price: bookingData.price,
+    // Check if trip exists
+    const trip = getTripById(ticketData.tripId);
+    if (!trip) {
+      // Return 404 Not Found if trip doesn't exist
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Trip with ID "${ticketData.tripId}" not found`,
+          message: "Cannot create ticket for a non-existent trip.",
+        },
+        { status: 404 }
+      );
+    }
+
+    // Create the new ticket
+    const newTicket = createTicket({
+      userId: ticketData.userId,
+      tripId: ticketData.tripId,
+      seatNumber: ticketData.seatNumber.trim(),
+      price: trip.price, // Price comes from the trip
     });
 
-    // Return success response with created booking (201 Created)
+    // Return success response with created ticket (201 Created)
     return NextResponse.json(
       {
         success: true,
-        data: newBooking,
-        message: "Booking created successfully",
+        data: newTicket,
+        message: "Ticket created successfully",
       },
       { status: 201 }
     );
@@ -263,7 +277,7 @@ export async function POST(
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to create booking",
+        error: "Failed to create ticket",
         message: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }

@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     default: "PIPcube",
     template: "%s | PIPcube",
   },
-  description: "Next.js application demonstrating SSG, SSR, and ISR",
+  description: "Intercity bus ticket cancellation and refund system - Transparent, accountable, and rule-based",
 };
 
 export default function RootLayout({

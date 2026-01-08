@@ -2,13 +2,14 @@ import type { NavItem } from "@/types";
 
 export const navigationItems: NavItem[] = [
   { label: "Home", href: "/" },
-  { label: "About", href: "/about" },
+  { label: "Tickets", href: "/tickets" },
   { label: "Dashboard", href: "/dashboard" },
-  { label: "News", href: "/news" },
+  { label: "Cancellations", href: "/cancellations" },
+  { label: "Refunds", href: "/refunds" },
 ];
 
 export const siteConfig = {
   name: "PIPcube",
-  description: "Next.js application demonstrating SSG, SSR, and ISR",
+  description: "Intercity bus ticket cancellation and refund system",
   url: process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
 };
