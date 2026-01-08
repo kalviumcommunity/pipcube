@@ -7,15 +7,16 @@
  * - GET: Retrieve refunds with pagination support
  * - POST: Process a refund for an approved cancellation
  *
+ * All responses use the global response handler to ensure a consistent shape.
+ *
  * @module app/api/refunds/route
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import type {
   ApiResponse,
   Refund,
   CreateRefundRequest,
-  PaginatedResponse,
 } from "@/types/api";
 import {
   getRefunds,
@@ -23,6 +24,8 @@ import {
   getCancellationById,
 } from "@/lib/mock-data";
 import { validateCreateRefund } from "@/lib/validation";
+import { sendSuccess, sendError } from "@/lib/responseHandler";
+import { ErrorCodes } from "@/lib/errorCodes";
 
 /**
  * GET /api/refunds
@@ -38,9 +41,7 @@ import { validateCreateRefund } from "@/lib/validation";
  * @returns {Promise<NextResponse>} JSON response containing paginated refunds
  * @status {200} Success - Returns paginated list of refunds
  */
-export async function GET(
-  request: NextRequest
-): Promise<NextResponse<PaginatedResponse<Refund>>> {
+export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const pageParam = searchParams.get("page");
@@ -48,19 +49,11 @@ export async function GET(
 
     const page = pageParam ? Math.max(1, parseInt(pageParam, 10)) : 1;
     if (isNaN(page) || page < 1) {
-      return NextResponse.json(
-        {
-          success: false,
-          data: [],
-          pagination: {
-            page: 1,
-            limit: 10,
-            total: 0,
-            totalPages: 0,
-          },
-          error: "Invalid page parameter. Must be a positive integer.",
-        } as PaginatedResponse<Refund>,
-        { status: 400 }
+      return sendError(
+        "Invalid page parameter. Must be a positive integer.",
+        ErrorCodes.VALIDATION_ERROR,
+        400,
+        { page: pageParam }
       );
     }
 
@@ -91,10 +84,9 @@ export async function GET(
 
     const paginatedRefunds = allRefunds.slice(startIndex, endIndex);
 
-    return NextResponse.json(
+    return sendSuccess(
       {
-        success: true,
-        data: paginatedRefunds,
+        items: paginatedRefunds,
         pagination: {
           page,
           limit,
@@ -102,23 +94,15 @@ export async function GET(
           totalPages,
         },
       },
-      { status: 200 }
+      "Refunds fetched successfully",
+      200
     );
   } catch (error) {
-    return NextResponse.json(
-      {
-        success: false,
-        data: [],
-        pagination: {
-          page: 1,
-          limit: 10,
-          total: 0,
-          totalPages: 0,
-        },
-        error: "Failed to retrieve refunds",
-        message: error instanceof Error ? error.message : "Unknown error",
-      } as PaginatedResponse<Refund>,
-      { status: 500 }
+    return sendError(
+      "Failed to retrieve refunds",
+      ErrorCodes.INTERNAL_ERROR,
+      500,
+      error instanceof Error ? error.message : "Unknown error"
     );
   }
 }
@@ -140,20 +124,16 @@ export async function GET(
  * @status {400} Bad Request - Invalid input or cancellation not eligible
  * @status {404} Not Found - Cancellation not found
  */
-export async function POST(
-  request: NextRequest
-): Promise<NextResponse<ApiResponse<Refund>>> {
+export async function POST(request: NextRequest) {
   try {
     const body: unknown = await request.json();
 
     const validation = validateCreateRefund(body);
     if (!validation.isValid) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: validation.error || "Validation failed",
-        },
-        { status: 400 }
+      return sendError(
+        validation.error || "Validation failed",
+        ErrorCodes.VALIDATION_ERROR,
+        400
       );
     }
 
@@ -162,34 +142,28 @@ export async function POST(
     // Check if cancellation exists
     const cancellation = getCancellationById(refundData.cancellationId);
     if (!cancellation) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Cancellation with ID "${refundData.cancellationId}" not found`,
-        },
-        { status: 404 }
+      return sendError(
+        `Cancellation with ID "${refundData.cancellationId}" not found`,
+        ErrorCodes.NOT_FOUND,
+        404
       );
     }
 
     // Check if cancellation is eligible for refund
     if (!cancellation.refundEligibility) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "This cancellation is not eligible for refund based on the cancellation policy",
-        },
-        { status: 400 }
+      return sendError(
+        "This cancellation is not eligible for refund based on the cancellation policy",
+        ErrorCodes.VALIDATION_ERROR,
+        400
       );
     }
 
     // Check if cancellation is processed
     if (cancellation.status !== "processed") {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Cancellation must be processed before refund can be initiated",
-        },
-        { status: 400 }
+      return sendError(
+        "Cancellation must be processed before refund can be initiated",
+        ErrorCodes.VALIDATION_ERROR,
+        400
       );
     }
 
@@ -199,13 +173,11 @@ export async function POST(
       (r) => r.cancellationId === refundData.cancellationId
     );
     if (existingRefund) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Refund already exists for this cancellation",
-          data: existingRefund,
-        },
-        { status: 400 }
+      return sendError(
+        "Refund already exists for this cancellation",
+        ErrorCodes.VALIDATION_ERROR,
+        400,
+        existingRefund
       );
     }
 
@@ -219,32 +191,25 @@ export async function POST(
       reason: cancellation.reason,
     });
 
-    return NextResponse.json(
-      {
-        success: true,
-        data: newRefund,
-        message: "Refund processed successfully",
-      },
-      { status: 201 }
+    return sendSuccess<Refund>(
+      newRefund,
+      "Refund processed successfully",
+      201
     );
   } catch (error) {
     if (error instanceof SyntaxError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid JSON in request body",
-        },
-        { status: 400 }
+      return sendError(
+        "Invalid JSON in request body",
+        ErrorCodes.VALIDATION_ERROR,
+        400
       );
     }
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to process refund",
-        message: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 }
+    return sendError(
+      "Failed to process refund",
+      ErrorCodes.INTERNAL_ERROR,
+      500,
+      error instanceof Error ? error.message : "Unknown error"
     );
   }
 }
