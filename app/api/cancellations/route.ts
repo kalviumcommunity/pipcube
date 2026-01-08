@@ -7,15 +7,16 @@
  * - GET: Retrieve cancellations with pagination support
  * - POST: Create a new cancellation request
  *
+ * All responses use the global response handler to ensure a consistent shape.
+ *
  * @module app/api/cancellations/route
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import type {
   ApiResponse,
   Cancellation,
   CreateCancellationRequest,
-  PaginatedResponse,
 } from "@/types/api";
 import {
   getCancellations,
@@ -24,6 +25,8 @@ import {
   calculateRefundEligibility,
 } from "@/lib/mock-data";
 import { validateCreateCancellation } from "@/lib/validation";
+import { sendSuccess, sendError } from "@/lib/responseHandler";
+import { ErrorCodes } from "@/lib/errorCodes";
 
 /**
  * GET /api/cancellations
@@ -39,9 +42,7 @@ import { validateCreateCancellation } from "@/lib/validation";
  * @returns {Promise<NextResponse>} JSON response containing paginated cancellations
  * @status {200} Success - Returns paginated list of cancellations
  */
-export async function GET(
-  request: NextRequest
-): Promise<NextResponse<PaginatedResponse<Cancellation>>> {
+export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const pageParam = searchParams.get("page");
@@ -49,19 +50,11 @@ export async function GET(
 
     const page = pageParam ? Math.max(1, parseInt(pageParam, 10)) : 1;
     if (isNaN(page) || page < 1) {
-      return NextResponse.json(
-        {
-          success: false,
-          data: [],
-          pagination: {
-            page: 1,
-            limit: 10,
-            total: 0,
-            totalPages: 0,
-          },
-          error: "Invalid page parameter. Must be a positive integer.",
-        } as PaginatedResponse<Cancellation>,
-        { status: 400 }
+      return sendError(
+        "Invalid page parameter. Must be a positive integer.",
+        ErrorCodes.VALIDATION_ERROR,
+        400,
+        { page: pageParam }
       );
     }
 
@@ -96,10 +89,9 @@ export async function GET(
 
     const paginatedCancellations = allCancellations.slice(startIndex, endIndex);
 
-    return NextResponse.json(
+    return sendSuccess(
       {
-        success: true,
-        data: paginatedCancellations,
+        items: paginatedCancellations,
         pagination: {
           page,
           limit,
@@ -107,23 +99,15 @@ export async function GET(
           totalPages,
         },
       },
-      { status: 200 }
+      "Cancellations fetched successfully",
+      200
     );
   } catch (error) {
-    return NextResponse.json(
-      {
-        success: false,
-        data: [],
-        pagination: {
-          page: 1,
-          limit: 10,
-          total: 0,
-          totalPages: 0,
-        },
-        error: "Failed to retrieve cancellations",
-        message: error instanceof Error ? error.message : "Unknown error",
-      } as PaginatedResponse<Cancellation>,
-      { status: 500 }
+    return sendError(
+      "Failed to retrieve cancellations",
+      ErrorCodes.INTERNAL_ERROR,
+      500,
+      error instanceof Error ? error.message : "Unknown error"
     );
   }
 }
@@ -147,20 +131,16 @@ export async function GET(
  * @status {400} Bad Request - Invalid input data or ticket already cancelled
  * @status {404} Not Found - Ticket not found
  */
-export async function POST(
-  request: NextRequest
-): Promise<NextResponse<ApiResponse<Cancellation>>> {
+export async function POST(request: NextRequest) {
   try {
     const body: unknown = await request.json();
 
     const validation = validateCreateCancellation(body);
     if (!validation.isValid) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: validation.error || "Validation failed",
-        },
-        { status: 400 }
+      return sendError(
+        validation.error || "Validation failed",
+        ErrorCodes.VALIDATION_ERROR,
+        400
       );
     }
 
@@ -169,23 +149,19 @@ export async function POST(
     // Check if ticket exists
     const ticket = getTicketById(cancellationData.ticketId);
     if (!ticket) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Ticket with ID "${cancellationData.ticketId}" not found`,
-        },
-        { status: 404 }
+      return sendError(
+        `Ticket with ID "${cancellationData.ticketId}" not found`,
+        ErrorCodes.NOT_FOUND,
+        404
       );
     }
 
     // Check if ticket is already cancelled
     if (ticket.status === "cancelled") {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Ticket is already cancelled",
-        },
-        { status: 400 }
+      return sendError(
+        "Ticket is already cancelled",
+        ErrorCodes.VALIDATION_ERROR,
+        400
       );
     }
 
@@ -203,32 +179,25 @@ export async function POST(
       refundAmount: refundInfo.amount,
     });
 
-    return NextResponse.json(
-      {
-        success: true,
-        data: newCancellation,
-        message: "Cancellation request created successfully",
-      },
-      { status: 201 }
+    return sendSuccess<Cancellation>(
+      newCancellation,
+      "Cancellation request created successfully",
+      201
     );
   } catch (error) {
     if (error instanceof SyntaxError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid JSON in request body",
-        },
-        { status: 400 }
+      return sendError(
+        "Invalid JSON in request body",
+        ErrorCodes.VALIDATION_ERROR,
+        400
       );
     }
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to create cancellation",
-        message: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 }
+    return sendError(
+      "Failed to create cancellation",
+      ErrorCodes.INTERNAL_ERROR,
+      500,
+      error instanceof Error ? error.message : "Unknown error"
     );
   }
 }

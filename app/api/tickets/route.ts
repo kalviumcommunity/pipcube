@@ -6,18 +6,20 @@
  * - GET: Retrieve tickets with pagination support
  * - POST: Create a new ticket (booking)
  *
+ * All responses use the global response handler to ensure a consistent shape.
+ *
  * @module app/api/tickets/route
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import type {
-  ApiResponse,
   Ticket,
   CreateTicketRequest,
-  PaginatedResponse,
 } from "@/types/api";
 import { getTickets, createTicket, getUserById, getTripById } from "@/lib/mock-data";
 import { validateCreateTicket } from "@/lib/validation";
+import { sendSuccess, sendError } from "@/lib/responseHandler";
+import { ErrorCodes } from "@/lib/errorCodes";
 
 /**
  * GET /api/tickets
@@ -56,9 +58,7 @@ import { validateCreateTicket } from "@/lib/validation";
  *   }
  * }
  */
-export async function GET(
-  request: NextRequest
-): Promise<NextResponse<PaginatedResponse<Ticket>>> {
+export async function GET(request: NextRequest) {
   try {
     // Get query parameters from URL
     const searchParams = request.nextUrl.searchParams;
@@ -68,19 +68,11 @@ export async function GET(
     // Parse and validate page parameter (default: 1, minimum: 1)
     const page = pageParam ? Math.max(1, parseInt(pageParam, 10)) : 1;
     if (isNaN(page) || page < 1) {
-      return NextResponse.json(
-        {
-          success: false,
-          data: [],
-          pagination: {
-            page: 1,
-            limit: 10,
-            total: 0,
-            totalPages: 0,
-          },
-          error: "Invalid page parameter. Must be a positive integer.",
-        } as PaginatedResponse<Ticket>,
-        { status: 400 }
+      return sendError(
+        "Invalid page parameter. Must be a positive integer.",
+        ErrorCodes.VALIDATION_ERROR,
+        400,
+        { page: pageParam }
       );
     }
 
@@ -114,10 +106,9 @@ export async function GET(
     const paginatedTickets = allTickets.slice(startIndex, endIndex);
 
     // Return success response with paginated data
-    return NextResponse.json(
+    return sendSuccess(
       {
-        success: true,
-        data: paginatedTickets,
+        items: paginatedTickets,
         pagination: {
           page,
           limit,
@@ -125,24 +116,16 @@ export async function GET(
           totalPages,
         },
       },
-      { status: 200 }
+      "Tickets fetched successfully",
+      200
     );
   } catch (error) {
     // Handle unexpected errors
-    return NextResponse.json(
-      {
-        success: false,
-        data: [],
-        pagination: {
-          page: 1,
-          limit: 10,
-          total: 0,
-          totalPages: 0,
-        },
-        error: "Failed to retrieve tickets",
-        message: error instanceof Error ? error.message : "Unknown error",
-      } as PaginatedResponse<Ticket>,
-      { status: 500 }
+    return sendError(
+      "Failed to retrieve tickets",
+      ErrorCodes.INTERNAL_ERROR,
+      500,
+      error instanceof Error ? error.message : "Unknown error"
     );
   }
 }
@@ -193,9 +176,7 @@ export async function GET(
  *   "error": "User with ID \"999\" not found"
  * }
  */
-export async function POST(
-  request: NextRequest
-): Promise<NextResponse<ApiResponse<Ticket>>> {
+export async function POST(request: NextRequest) {
   try {
     // Parse request body
     const body: unknown = await request.json();
@@ -204,12 +185,10 @@ export async function POST(
     const validation = validateCreateTicket(body);
     if (!validation.isValid) {
       // Return 400 Bad Request if validation fails
-      return NextResponse.json(
-        {
-          success: false,
-          error: validation.error || "Validation failed",
-        },
-        { status: 400 }
+      return sendError(
+        validation.error || "Validation failed",
+        ErrorCodes.VALIDATION_ERROR,
+        400
       );
     }
 
@@ -220,14 +199,11 @@ export async function POST(
     const user = getUserById(ticketData.userId);
     if (!user) {
       // Return 404 Not Found if user doesn't exist
-      return NextResponse.json(
-        {
-          success: false,
-          error: `User with ID "${ticketData.userId}" not found`,
-          message:
-            "Cannot create ticket for a non-existent user. Please create the user first.",
-        },
-        { status: 404 }
+      return sendError(
+        `User with ID "${ticketData.userId}" not found`,
+        ErrorCodes.NOT_FOUND,
+        404,
+        "Cannot create ticket for a non-existent user. Please create the user first."
       );
     }
 
@@ -235,13 +211,11 @@ export async function POST(
     const trip = getTripById(ticketData.tripId);
     if (!trip) {
       // Return 404 Not Found if trip doesn't exist
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Trip with ID "${ticketData.tripId}" not found`,
-          message: "Cannot create ticket for a non-existent trip.",
-        },
-        { status: 404 }
+      return sendError(
+        `Trip with ID "${ticketData.tripId}" not found`,
+        ErrorCodes.NOT_FOUND,
+        404,
+        "Cannot create ticket for a non-existent trip."
       );
     }
 
@@ -254,33 +228,26 @@ export async function POST(
     });
 
     // Return success response with created ticket (201 Created)
-    return NextResponse.json(
-      {
-        success: true,
-        data: newTicket,
-        message: "Ticket created successfully",
-      },
-      { status: 201 }
+    return sendSuccess<Ticket>(
+      newTicket,
+      "Ticket created successfully",
+      201
     );
   } catch (error) {
     // Handle JSON parsing errors or other unexpected errors
     if (error instanceof SyntaxError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid JSON in request body",
-        },
-        { status: 400 }
+      return sendError(
+        "Invalid JSON in request body",
+        ErrorCodes.VALIDATION_ERROR,
+        400
       );
     }
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to create ticket",
-        message: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 }
+    return sendError(
+      "Failed to create ticket",
+      ErrorCodes.INTERNAL_ERROR,
+      500,
+      error instanceof Error ? error.message : "Unknown error"
     );
   }
 }

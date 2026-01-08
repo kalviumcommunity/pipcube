@@ -207,3 +207,34 @@ POST   /api/users       → Create a user
 
 GET    /api/bookings    → Fetch bookings (paginated)
 POST   /api/bookings   → Create booking
+
+
+## Global API Response Handler
+
+To ensure consistency, predictability, and better developer experience across the backend, this project uses a **Global API Response Handler** for all API routes. Every endpoint returns responses in a unified structure, making frontend integration, debugging, and monitoring much easier.
+
+---
+
+### Why a Unified Response Format?
+
+Without a standard response structure, different API routes may return different JSON shapes, which increases frontend complexity and makes error handling inconsistent. A global response handler ensures:
+
+- Predictable API responses across all endpoints
+- Easier frontend integration
+- Clear and structured error handling
+- Improved observability and debugging
+
+---
+
+### Standard Response Structure
+
+All API responses follow this envelope:
+
+#### Success Response
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": {},
+  "timestamp": "2026-01-08T07:50:00.000Z"
+}

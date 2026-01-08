@@ -6,13 +6,17 @@
  * - GET: Retrieve a list of all users
  * - POST: Create a new user
  *
+ * All responses use the global response handler to ensure a consistent shape.
+ *
  * @module app/api/users/route
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import type { ApiResponse, User, CreateUserRequest } from "@/types/api";
+import type { NextRequest } from "next/server";
+import type { User, CreateUserRequest } from "@/types/api";
 import { getUsers, createUser } from "@/lib/mock-data";
 import { validateCreateUser } from "@/lib/validation";
+import { sendSuccess, sendError } from "@/lib/responseHandler";
+import { ErrorCodes } from "@/lib/errorCodes";
 
 /**
  * GET /api/users
@@ -37,28 +41,20 @@ import { validateCreateUser } from "@/lib/validation";
  *   ]
  * }
  */
-export async function GET(): Promise<NextResponse<ApiResponse<User[]>>> {
+export async function GET() {
   try {
     // Retrieve all users from mock data
     const users = getUsers();
 
     // Return success response with users data
-    return NextResponse.json(
-      {
-        success: true,
-        data: users,
-      },
-      { status: 200 }
-    );
+    return sendSuccess<User[]>(users, "Users fetched successfully", 200);
   } catch (error) {
     // Handle unexpected errors
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to retrieve users",
-        message: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 }
+    return sendError(
+      "Failed to retrieve users",
+      ErrorCodes.INTERNAL_ERROR,
+      500,
+      error instanceof Error ? error.message : "Unknown error"
     );
   }
 }
@@ -99,9 +95,7 @@ export async function GET(): Promise<NextResponse<ApiResponse<User[]>>> {
  *   "error": "Name is required and must be a string"
  * }
  */
-export async function POST(
-  request: NextRequest
-): Promise<NextResponse<ApiResponse<User>>> {
+export async function POST(request: NextRequest) {
   try {
     // Parse request body
     const body: unknown = await request.json();
@@ -110,12 +104,10 @@ export async function POST(
     const validation = validateCreateUser(body);
     if (!validation.isValid) {
       // Return 400 Bad Request if validation fails
-      return NextResponse.json(
-        {
-          success: false,
-          error: validation.error || "Validation failed",
-        },
-        { status: 400 }
+      return sendError(
+        validation.error || "Validation failed",
+        ErrorCodes.VALIDATION_ERROR,
+        400
       );
     }
 
@@ -130,33 +122,26 @@ export async function POST(
     });
 
     // Return success response with created user (201 Created)
-    return NextResponse.json(
-      {
-        success: true,
-        data: newUser,
-        message: "User created successfully",
-      },
-      { status: 201 }
+    return sendSuccess<User>(
+      newUser,
+      "User created successfully",
+      201
     );
   } catch (error) {
     // Handle JSON parsing errors or other unexpected errors
     if (error instanceof SyntaxError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid JSON in request body",
-        },
-        { status: 400 }
+      return sendError(
+        "Invalid JSON in request body",
+        ErrorCodes.VALIDATION_ERROR,
+        400
       );
     }
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to create user",
-        message: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 }
+    return sendError(
+      "Failed to create user",
+      ErrorCodes.INTERNAL_ERROR,
+      500,
+      error instanceof Error ? error.message : "Unknown error"
     );
   }
 }
