@@ -13,19 +13,17 @@
  */
 
 import type { NextRequest } from "next/server";
-import type {
-  ApiResponse,
-  Refund,
-  CreateRefundRequest,
-} from "@/types/api";
+import type { Refund } from "@/types/api";
 import {
   getRefunds,
   createRefund,
   getCancellationById,
 } from "@/lib/mock-data";
-import { validateCreateRefund } from "@/lib/validation";
 import { sendSuccess, sendError } from "@/lib/responseHandler";
 import { ErrorCodes } from "@/lib/errorCodes";
+import { createRefundSchema } from "@/lib/schemas/refundSchema";
+import { formatZodError } from "@/lib/schemas/zodErrorFormatter";
+import { ZodError } from "zod";
 
 /**
  * GET /api/refunds
@@ -126,24 +124,18 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    // Parse request body
     const body: unknown = await request.json();
 
-    const validation = validateCreateRefund(body);
-    if (!validation.isValid) {
-      return sendError(
-        validation.error || "Validation failed",
-        ErrorCodes.VALIDATION_ERROR,
-        400
-      );
-    }
-
-    const refundData = body as CreateRefundRequest;
+    // Validate the input data using Zod schema
+    // schema.parse() will throw ZodError if validation fails
+    const validatedData = createRefundSchema.parse(body);
 
     // Check if cancellation exists
-    const cancellation = getCancellationById(refundData.cancellationId);
+    const cancellation = getCancellationById(validatedData.cancellationId);
     if (!cancellation) {
       return sendError(
-        `Cancellation with ID "${refundData.cancellationId}" not found`,
+        `Cancellation with ID "${validatedData.cancellationId}" not found`,
         ErrorCodes.NOT_FOUND,
         404
       );
@@ -170,18 +162,19 @@ export async function POST(request: NextRequest) {
     // Check if refund already exists for this cancellation
     const existingRefunds = getRefunds();
     const existingRefund = existingRefunds.find(
-      (r) => r.cancellationId === refundData.cancellationId
+      (r) => r.cancellationId === validatedData.cancellationId
     );
     if (existingRefund) {
       return sendError(
         "Refund already exists for this cancellation",
         ErrorCodes.VALIDATION_ERROR,
         400,
-        existingRefund
+        { existingRefund }
       );
     }
 
-    // Create the refund
+    // Create the refund with validated data
+    // Zod ensures all fields are properly typed and validated
     const newRefund = createRefund({
       cancellationId: cancellation.id,
       ticketId: cancellation.ticketId,
@@ -197,6 +190,22 @@ export async function POST(request: NextRequest) {
       201
     );
   } catch (error) {
+    // Handle Zod validation errors explicitly
+    if (error instanceof ZodError) {
+      // Format Zod errors into structured array
+      const validationErrors = formatZodError(error);
+      
+      return sendError(
+        "Validation Error",
+        ErrorCodes.VALIDATION_ERROR,
+        400,
+        {
+          errors: validationErrors,
+        }
+      );
+    }
+
+    // Handle JSON parsing errors
     if (error instanceof SyntaxError) {
       return sendError(
         "Invalid JSON in request body",
@@ -205,6 +214,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Handle unexpected errors
     return sendError(
       "Failed to process refund",
       ErrorCodes.INTERNAL_ERROR,

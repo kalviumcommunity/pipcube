@@ -12,11 +12,13 @@
  */
 
 import type { NextRequest } from "next/server";
-import type { User, CreateUserRequest } from "@/types/api";
+import type { User } from "@/types/api";
 import { getUsers, createUser } from "@/lib/mock-data";
-import { validateCreateUser } from "@/lib/validation";
 import { sendSuccess, sendError } from "@/lib/responseHandler";
 import { ErrorCodes } from "@/lib/errorCodes";
+import { createUserSchema } from "@/lib/schemas/userSchema";
+import { formatZodError } from "@/lib/schemas/zodErrorFormatter";
+import { ZodError } from "zod";
 
 /**
  * GET /api/users
@@ -100,25 +102,16 @@ export async function POST(request: NextRequest) {
     // Parse request body
     const body: unknown = await request.json();
 
-    // Validate the input data
-    const validation = validateCreateUser(body);
-    if (!validation.isValid) {
-      // Return 400 Bad Request if validation fails
-      return sendError(
-        validation.error || "Validation failed",
-        ErrorCodes.VALIDATION_ERROR,
-        400
-      );
-    }
+    // Validate the input data using Zod schema
+    // schema.parse() will throw ZodError if validation fails
+    const validatedData = createUserSchema.parse(body);
 
-    // Type assertion after validation
-    const userData = body as CreateUserRequest;
-
-    // Create the new user
+    // Create the new user with validated data
+    // Zod ensures all fields are properly typed and validated
     const newUser = createUser({
-      name: userData.name.trim(),
-      email: userData.email?.trim(),
-      phone: userData.phone?.trim(),
+      name: validatedData.name,
+      email: validatedData.email || undefined,
+      phone: validatedData.phone || undefined,
     });
 
     // Return success response with created user (201 Created)
@@ -128,7 +121,22 @@ export async function POST(request: NextRequest) {
       201
     );
   } catch (error) {
-    // Handle JSON parsing errors or other unexpected errors
+    // Handle Zod validation errors explicitly
+    if (error instanceof ZodError) {
+      // Format Zod errors into structured array
+      const validationErrors = formatZodError(error);
+      
+      return sendError(
+        "Validation Error",
+        ErrorCodes.VALIDATION_ERROR,
+        400,
+        {
+          errors: validationErrors,
+        }
+      );
+    }
+
+    // Handle JSON parsing errors
     if (error instanceof SyntaxError) {
       return sendError(
         "Invalid JSON in request body",
@@ -137,6 +145,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Handle unexpected errors
     return sendError(
       "Failed to create user",
       ErrorCodes.INTERNAL_ERROR,
