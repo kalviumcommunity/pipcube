@@ -201,3 +201,9 @@ All services run on a shared bridge network and communicate using service names.
 ### How to Run
 ```bash
 docker-compose up --build
+
+GET    /api/users       → Fetch all users
+POST   /api/users       → Create a user
+
+GET    /api/bookings    → Fetch bookings (paginated)
+POST   /api/bookings   → Create booking
