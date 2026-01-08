@@ -1,4 +1,4 @@
-// API-related types for the bus ticket cancellation system
+// API-related types for the bus ticket cancellation and refund system
 
 export interface User {
   id: string;
@@ -8,15 +8,64 @@ export interface User {
   createdAt: string;
 }
 
-export interface Booking {
+export interface BusOperator {
   id: string;
-  userId: string;
+  name: string;
+  licenseNumber: string;
+  contactEmail: string;
+  createdAt: string;
+}
+
+export interface Trip {
+  id: string;
+  operatorId: string;
   route: string;
   departureDate: string;
   departureTime: string;
+  arrivalDate: string;
+  arrivalTime: string;
+  price: number;
+  availableSeats: number;
+  totalSeats: number;
+  createdAt: string;
+}
+
+export interface Ticket {
+  id: string;
+  userId: string;
+  tripId: string;
   seatNumber: string;
   price: number;
-  status: "confirmed" | "cancelled" | "refunded";
+  status: "confirmed" | "cancelled";
+  createdAt: string;
+}
+
+export interface Cancellation {
+  id: string;
+  ticketId: string;
+  userId: string;
+  reason: string;
+  cancelledBy: "user" | "operator" | "system";
+  cancellationPolicy: string;
+  refundEligibility: boolean;
+  refundAmount?: number;
+  status: "pending" | "processed" | "rejected";
+  createdAt: string;
+  processedAt?: string;
+}
+
+export interface Refund {
+  id: string;
+  cancellationId: string;
+  ticketId: string;
+  userId: string;
+  originalAmount: number;
+  refundAmount: number;
+  refundPercentage: number;
+  reason: string;
+  status: "pending" | "processing" | "completed" | "failed";
+  processedAt?: string;
+  expectedCompletionDate?: string;
   createdAt: string;
 }
 
@@ -26,13 +75,19 @@ export interface CreateUserRequest {
   phone?: string;
 }
 
-export interface CreateBookingRequest {
+export interface CreateTicketRequest {
   userId: string;
-  route: string;
-  departureDate: string;
-  departureTime: string;
+  tripId: string;
   seatNumber: string;
-  price: number;
+}
+
+export interface CreateCancellationRequest {
+  ticketId: string;
+  reason: string;
+}
+
+export interface CreateRefundRequest {
+  cancellationId: string;
 }
 
 export interface ApiResponse<T> {

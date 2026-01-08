@@ -1,11 +1,16 @@
 // Validation utilities for API requests
 
-import type { CreateUserRequest, CreateBookingRequest } from "@/types/api";
+import type {
+  CreateUserRequest,
+  CreateTicketRequest,
+  CreateCancellationRequest,
+  CreateRefundRequest,
+} from "@/types/api";
 
 /**
  * Validates a create user request
  * @param data - The user data to validate
- * @returns Validation error message or null if valid
+ * @returns Validation result with isValid flag and optional error message
  */
 export function validateCreateUser(
   data: unknown
@@ -40,74 +45,117 @@ export function validateCreateUser(
 }
 
 /**
- * Validates a create booking request
- * @param data - The booking data to validate
- * @returns Validation error message or null if valid
+ * Validates a create ticket request
+ * @param data - The ticket data to validate
+ * @returns Validation result with isValid flag and optional error message
  */
-export function validateCreateBooking(
+export function validateCreateTicket(
   data: unknown
 ): { isValid: boolean; error?: string } {
   if (!data || typeof data !== "object") {
     return { isValid: false, error: "Invalid request body" };
   }
 
-  const bookingData = data as Partial<CreateBookingRequest>;
+  const ticketData = data as Partial<CreateTicketRequest>;
 
   // userId is required
-  if (!bookingData.userId || typeof bookingData.userId !== "string") {
+  if (!ticketData.userId || typeof ticketData.userId !== "string") {
     return {
       isValid: false,
       error: "userId is required and must be a string",
     };
   }
 
-  // route is required
-  if (!bookingData.route || typeof bookingData.route !== "string") {
+  // tripId is required
+  if (!ticketData.tripId || typeof ticketData.tripId !== "string") {
     return {
       isValid: false,
-      error: "route is required and must be a string",
-    };
-  }
-
-  // departureDate is required
-  if (
-    !bookingData.departureDate ||
-    typeof bookingData.departureDate !== "string"
-  ) {
-    return {
-      isValid: false,
-      error: "departureDate is required and must be a string",
-    };
-  }
-
-  // departureTime is required
-  if (
-    !bookingData.departureTime ||
-    typeof bookingData.departureTime !== "string"
-  ) {
-    return {
-      isValid: false,
-      error: "departureTime is required and must be a string",
+      error: "tripId is required and must be a string",
     };
   }
 
   // seatNumber is required
-  if (!bookingData.seatNumber || typeof bookingData.seatNumber !== "string") {
+  if (!ticketData.seatNumber || typeof ticketData.seatNumber !== "string") {
     return {
       isValid: false,
       error: "seatNumber is required and must be a string",
     };
   }
 
-  // price is required and must be a number
+  // Validate seat number format (e.g., A12, B5, etc.)
+  if (ticketData.seatNumber.trim().length === 0) {
+    return {
+      isValid: false,
+      error: "seatNumber cannot be empty",
+    };
+  }
+
+  return { isValid: true };
+}
+
+/**
+ * Validates a create cancellation request
+ * @param data - The cancellation data to validate
+ * @returns Validation result with isValid flag and optional error message
+ */
+export function validateCreateCancellation(
+  data: unknown
+): { isValid: boolean; error?: string } {
+  if (!data || typeof data !== "object") {
+    return { isValid: false, error: "Invalid request body" };
+  }
+
+  const cancellationData = data as Partial<CreateCancellationRequest>;
+
+  // ticketId is required
+  if (!cancellationData.ticketId || typeof cancellationData.ticketId !== "string") {
+    return {
+      isValid: false,
+      error: "ticketId is required and must be a string",
+    };
+  }
+
+  // reason is required
+  if (!cancellationData.reason || typeof cancellationData.reason !== "string") {
+    return {
+      isValid: false,
+      error: "reason is required and must be a string",
+    };
+  }
+
+  // Reason cannot be empty
+  if (cancellationData.reason.trim().length === 0) {
+    return {
+      isValid: false,
+      error: "reason cannot be empty",
+    };
+  }
+
+  return { isValid: true };
+}
+
+/**
+ * Validates a create refund request
+ * @param data - The refund data to validate
+ * @returns Validation result with isValid flag and optional error message
+ */
+export function validateCreateRefund(
+  data: unknown
+): { isValid: boolean; error?: string } {
+  if (!data || typeof data !== "object") {
+    return { isValid: false, error: "Invalid request body" };
+  }
+
+  const refundData = data as Partial<CreateRefundRequest>;
+
+  // cancellationId is required
   if (
-    bookingData.price === undefined ||
-    typeof bookingData.price !== "number" ||
-    bookingData.price < 0
+    !refundData.cancellationId ||
+    typeof refundData.cancellationId !== "string"
   ) {
     return {
       isValid: false,
-      error: "price is required and must be a positive number",
+      error: "cancellationId is required and must be a string",
     };
   }
 
