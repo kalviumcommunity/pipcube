@@ -46,5 +46,13 @@
     "password": "$2b$10$OMlLkCdpd4snEAT0U3Q/VeWBQUhzYdQPMkTCFgs3PsCvApwwC0pSS",
     "role": "USER",
     "createdAt": "2026-01-09T09:27:59.595Z"
+  },
+  {
+    "id": "d6bj9d8q656",
+    "name": "Route Test",
+    "email": "route1767952500963@test.com",
+    "password": "$2b$10$HnVLd1/NzD0iWD3bVMNn4uVGpvQZGQiKy9tjHbLl5U6xYvFgjFfEi",
+    "role": "USER",
+    "createdAt": "2026-01-09T09:55:01.038Z"
   }
 ]

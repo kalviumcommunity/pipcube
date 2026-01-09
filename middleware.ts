@@ -6,7 +6,9 @@ import { verifyJWT } from "@/lib/auth";
 // Define protected routes and their required roles
 const PROTECTED_ROUTES = [
     { path: "/api/admin", roles: ["ADMIN"] },
-    { path: "/api/users", roles: ["USER", "ADMIN"] }, // Example: Users route accessible by both
+    { path: "/api/users", roles: ["USER", "ADMIN"] },
+    { path: "/dashboard", roles: ["USER", "ADMIN"] },
+    { path: "/users", roles: ["USER", "ADMIN"] },
 ];
 
 export async function middleware(req: NextRequest) {
@@ -18,34 +20,73 @@ export async function middleware(req: NextRequest) {
     );
 
     if (protectedRoute) {
-        const authHeader = req.headers.get("authorization");
+        // Determine context (API or Page)
+        const isApi = pathname.startsWith("/api");
 
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return NextResponse.json(
-                { error: "Missing or invalid authorization header" },
-                { status: 401 }
-            );
+        let token: string | undefined;
+
+        if (isApi) {
+            const authHeader = req.headers.get("authorization");
+            if (authHeader && authHeader.startsWith("Bearer ")) {
+                token = authHeader.split(" ")[1];
+            }
+        } else {
+            // For pages, check cookies
+            const tokenCookie = req.cookies.get("token");
+            token = tokenCookie?.value;
         }
 
-        const token = authHeader.split(" ")[1];
+        if (!token) {
+            if (isApi) {
+                return NextResponse.json(
+                    { error: "Missing or invalid authorization header" },
+                    { status: 401 }
+                );
+            } else {
+                // Redirect pages to login
+                const url = req.nextUrl.clone();
+                url.pathname = "/login";
+                url.searchParams.set("callbackUrl", pathname);
+                return NextResponse.redirect(url);
+            }
+        }
+
         const payload = await verifyJWT(token);
 
         if (!payload) {
-            return NextResponse.json(
-                { error: "Invalid or expired token" },
-                { status: 403 }
-            );
+            if (isApi) {
+                return NextResponse.json(
+                    { error: "Invalid or expired token" },
+                    { status: 403 }
+                );
+            } else {
+                // Redirect pages to login (token invalid)
+                const url = req.nextUrl.clone();
+                url.pathname = "/login";
+                return NextResponse.redirect(url);
+            }
         }
 
         // Check if user has necessary role
         if (!protectedRoute.roles.includes(payload.role)) {
-            return NextResponse.json(
-                { error: "Insufficient permissions" },
-                { status: 403 }
-            );
+            if (isApi) {
+                return NextResponse.json(
+                    { error: "Insufficient permissions" },
+                    { status: 403 }
+                );
+            } else {
+                // For pages, maybe a 403 page or redirect to dashboard
+                // For now, let's redirect to dashboard with an error param? 
+                // Or just let them pass if we are lazy? No, must protect.
+                // Let's Rewrite to a "Access Denied" page or just standard error response?
+                // Next.js middleware `rewrite` is useful here.
+                return NextResponse.rewrite(new URL('/403', req.url));
+                // (Assuming we create a 403 page or not-found handles it? 
+                //  Actually simplest is redirect to home or 404)
+            }
         }
 
-        // Add user info to headers for downstream access (optional but useful)
+        // Add user info to headers for downstream access
         const requestHeaders = new Headers(req.headers);
         requestHeaders.set("x-user-id", payload.userId);
         requestHeaders.set("x-user-role", payload.role);
@@ -62,5 +103,6 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-    matcher: ["/api/:path*"],
+    // Match API routes AND protected pages
+    matcher: ["/api/:path*", "/dashboard/:path*", "/users/:path*"],
 };

@@ -676,3 +676,39 @@ app/
  ├── lib/
  │    ├── redis.ts
  │    └── prisma.ts   (or database utility)
+
+# 🧭 Routing with Next.js App Router (Public, Protected & Dynamic Routes)
+
+## 📌 Project Overview
+This project demonstrates **page routing using the Next.js App Router (Next.js 13+)**.  
+It implements a complete routing system with **public pages**, **protected pages guarded by middleware**, **dynamic routes**, **navigation**, and **custom error handling**.
+
+The goal is to show how modern Next.js applications structure routes, secure sensitive pages, and dynamically render content based on URL parameters while keeping SEO and user experience in mind.
+
+---
+
+## 🎯 Objectives
+- Implement public and protected routes using the App Router
+- Secure private routes using middleware and JWT-based authentication
+- Use dynamic routing with URL parameters (`[id]`)
+- Add navigation and shared layout
+- Handle invalid routes with a custom 404 page
+- Reflect on routing design, SEO, and user experience
+
+---
+
+## 📁 Route Structure
+```text
+app/
+ ├── page.tsx                → Home (Public)
+ ├── login/
+ │    └── page.tsx           → Login (Public)
+ ├── dashboard/
+ │    └── page.tsx           → Dashboard (Protected)
+ ├── users/
+ │    ├── page.tsx           → Users List (Protected)
+ │    └── [id]/
+ │         └── page.tsx      → Dynamic User Profile
+ ├── not-found.tsx           → Custom 404 Page
+ └── layout.tsx              → Global Layout & Navigation
+middleware.ts                → Route Protection Logic
