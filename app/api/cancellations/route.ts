@@ -13,20 +13,18 @@
  */
 
 import type { NextRequest } from "next/server";
-import type {
-  ApiResponse,
-  Cancellation,
-  CreateCancellationRequest,
-} from "@/types/api";
+import type { Cancellation } from "@/types/api";
 import {
   getCancellations,
   createCancellation,
   getTicketById,
   calculateRefundEligibility,
 } from "@/lib/mock-data";
-import { validateCreateCancellation } from "@/lib/validation";
 import { sendSuccess, sendError } from "@/lib/responseHandler";
 import { ErrorCodes } from "@/lib/errorCodes";
+import { createCancellationSchema } from "@/lib/schemas/cancellationSchema";
+import { formatZodError } from "@/lib/schemas/zodErrorFormatter";
+import { ZodError } from "zod";
 
 /**
  * GET /api/cancellations
@@ -133,24 +131,18 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    // Parse request body
     const body: unknown = await request.json();
 
-    const validation = validateCreateCancellation(body);
-    if (!validation.isValid) {
-      return sendError(
-        validation.error || "Validation failed",
-        ErrorCodes.VALIDATION_ERROR,
-        400
-      );
-    }
-
-    const cancellationData = body as CreateCancellationRequest;
+    // Validate the input data using Zod schema
+    // schema.parse() will throw ZodError if validation fails
+    const validatedData = createCancellationSchema.parse(body);
 
     // Check if ticket exists
-    const ticket = getTicketById(cancellationData.ticketId);
+    const ticket = getTicketById(validatedData.ticketId);
     if (!ticket) {
       return sendError(
-        `Ticket with ID "${cancellationData.ticketId}" not found`,
+        `Ticket with ID "${validatedData.ticketId}" not found`,
         ErrorCodes.NOT_FOUND,
         404
       );
@@ -168,11 +160,12 @@ export async function POST(request: NextRequest) {
     // Calculate refund eligibility based on cancellation policy
     const refundInfo = calculateRefundEligibility(ticket.id);
 
-    // Create the cancellation
+    // Create the cancellation with validated data
+    // Zod ensures all fields are properly typed and validated
     const newCancellation = createCancellation({
-      ticketId: cancellationData.ticketId,
+      ticketId: validatedData.ticketId,
       userId: ticket.userId,
-      reason: cancellationData.reason.trim(),
+      reason: validatedData.reason,
       cancelledBy: "user",
       cancellationPolicy: refundInfo.policy,
       refundEligibility: refundInfo.eligible,
@@ -185,6 +178,22 @@ export async function POST(request: NextRequest) {
       201
     );
   } catch (error) {
+    // Handle Zod validation errors explicitly
+    if (error instanceof ZodError) {
+      // Format Zod errors into structured array
+      const validationErrors = formatZodError(error);
+      
+      return sendError(
+        "Validation Error",
+        ErrorCodes.VALIDATION_ERROR,
+        400,
+        {
+          errors: validationErrors,
+        }
+      );
+    }
+
+    // Handle JSON parsing errors
     if (error instanceof SyntaxError) {
       return sendError(
         "Invalid JSON in request body",
@@ -193,6 +202,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Handle unexpected errors
     return sendError(
       "Failed to create cancellation",
       ErrorCodes.INTERNAL_ERROR,

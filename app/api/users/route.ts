@@ -9,8 +9,14 @@
  *   Format: Authorization: Bearer <token>
  */
 
-import { NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
+import type { NextRequest } from "next/server";
+import type { User } from "@/types/api";
+import { getUsers, createUser } from "@/lib/mock-data";
+import { sendSuccess, sendError } from "@/lib/responseHandler";
+import { ErrorCodes } from "@/lib/errorCodes";
+import { createUserSchema } from "@/lib/schemas/userSchema";
+import { formatZodError } from "@/lib/schemas/zodErrorFormatter";
+import { ZodError } from "zod";
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 
@@ -19,48 +25,55 @@ export async function GET(req: Request) {
     // 1. Read Authorization header
     const authHeader = req.headers.get("authorization");
 
-    if (!authHeader) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Authorization header missing",
-        },
-        { status: 401 }
-      );
-    }
+    // Validate the input data using Zod schema
+    // schema.parse() will throw ZodError if validation fails
+    const validatedData = createUserSchema.parse(body);
 
-    // 2. Extract token
-    const token = authHeader.split(" ")[1];
+    // Create the new user with validated data
+    // Zod ensures all fields are properly typed and validated
+    const newUser = createUser({
+      name: validatedData.name,
+      email: validatedData.email || undefined,
+      phone: validatedData.phone || undefined,
+    });
 
-    if (!token) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Token missing",
-        },
-        { status: 401 }
-      );
-    }
-
-    // 3. Verify token
-    const decoded = jwt.verify(token, JWT_SECRET);
-
-    // 4. Return protected data
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Access granted to protected users route",
-        user: decoded,
-      },
-      { status: 200 }
+    // Return success response with created user (201 Created)
+    return sendSuccess<User>(
+      newUser,
+      "User created successfully",
+      201
     );
   } catch (error) {
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Invalid or expired token",
-      },
-      { status: 403 }
+    // Handle Zod validation errors explicitly
+    if (error instanceof ZodError) {
+      // Format Zod errors into structured array
+      const validationErrors = formatZodError(error);
+      
+      return sendError(
+        "Validation Error",
+        ErrorCodes.VALIDATION_ERROR,
+        400,
+        {
+          errors: validationErrors,
+        }
+      );
+    }
+
+    // Handle JSON parsing errors
+    if (error instanceof SyntaxError) {
+      return sendError(
+        "Invalid JSON in request body",
+        ErrorCodes.VALIDATION_ERROR,
+        400
+      );
+    }
+
+    // Handle unexpected errors
+    return sendError(
+      "Failed to create user",
+      ErrorCodes.INTERNAL_ERROR,
+      500,
+      error instanceof Error ? error.message : "Unknown error"
     );
   }
 }
