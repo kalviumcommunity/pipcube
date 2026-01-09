@@ -591,3 +591,26 @@ npm install zod
 ```
 
 All schemas are ready to use. No additional configuration required.
+
+# 🔐 Role-Based Access Control (RBAC) with Next.js Middleware
+
+## 📌 Project Overview
+This project implements **authorization middleware** in a Next.js application using **JWT-based Role-Based Access Control (RBAC)**.  
+The goal is to ensure that authenticated users can only access routes permitted by their assigned roles, following the **principle of least privilege**.
+
+Authentication verifies *who the user is*, while authorization determines *what the user is allowed to do*.  
+This task focuses entirely on **authorization**.
+
+---
+
+## 🎯 Objectives
+- Validate JWTs for protected API routes
+- Implement role-based access control (admin vs user)
+- Protect sensitive routes using centralized middleware
+- Enforce least-privilege access
+- Build a reusable and extensible authorization system
+
+---
+
+## 🧩 User Roles
+User roles are stored in the database using Prisma.

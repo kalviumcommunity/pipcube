@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
-import { prisma } from "@/lib/prisma";
-
-const JWT_SECRET = process.env.JWT_SECRET as string;
+import { db } from "@/lib/db";
+import { signJWT } from "@/lib/auth";
 
 export async function POST(req: Request) {
   try {
@@ -18,7 +16,7 @@ export async function POST(req: Request) {
     }
 
     // 2. Find user
-    const user = await prisma.user.findUnique({
+    const user = await db.user.findUnique({
       where: { email },
     });
 
@@ -32,7 +30,7 @@ export async function POST(req: Request) {
     // 3. Compare password
     const isValidPassword = await bcrypt.compare(
       password,
-      user.password
+      user.password || ""
     );
 
     if (!isValidPassword) {
@@ -43,19 +41,26 @@ export async function POST(req: Request) {
     }
 
     // 4. Generate JWT
-    const token = jwt.sign(
-      { id: user.id, email: user.email },
-      JWT_SECRET,
-      { expiresIn: "1h" }
-    );
+    const token = await signJWT({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+    });
 
     // 5. Return token
     return NextResponse.json({
       success: true,
       message: "Login successful",
       token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }
     });
   } catch (error) {
+    console.error("Login error:", error);
     return NextResponse.json(
       { success: false, message: "Login failed" },
       { status: 500 }
