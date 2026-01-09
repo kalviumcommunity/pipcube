@@ -1,14 +1,12 @@
 /**
- * RESTful API Route: /api/users
+ * Protected API Route: /api/users
  *
- * This route handles user-related operations for the intercity bus ticket system.
- * It follows REST conventions using HTTP methods:
- * - GET: Retrieve a list of all users
- * - POST: Create a new user
+ * This route demonstrates a JWT-protected endpoint.
+ * Only authenticated users with a valid token can access it.
  *
- * All responses use the global response handler to ensure a consistent shape.
- *
- * @module app/api/users/route
+ * Authentication:
+ * - Expects JWT in Authorization header
+ *   Format: Authorization: Bearer <token>
  */
 
 import type { NextRequest } from "next/server";
@@ -20,87 +18,12 @@ import { createUserSchema } from "@/lib/schemas/userSchema";
 import { formatZodError } from "@/lib/schemas/zodErrorFormatter";
 import { ZodError } from "zod";
 
-/**
- * GET /api/users
- *
- * Retrieves a list of all users in the system.
- * This endpoint returns all users without pagination (for simplicity).
- *
- * @returns {Promise<NextResponse>} JSON response containing array of users
- * @status {200} Success - Returns list of users
- *
- * Example response:
- * {
- *   "success": true,
- *   "data": [
- *     {
- *       "id": "1",
- *       "name": "John Doe",
- *       "email": "john.doe@example.com",
- *       "phone": "+1234567890",
- *       "createdAt": "2024-12-15T10:00:00.000Z"
- *     }
- *   ]
- * }
- */
-export async function GET() {
-  try {
-    // Retrieve all users from mock data
-    const users = getUsers();
+const JWT_SECRET = process.env.JWT_SECRET as string;
 
-    // Return success response with users data
-    return sendSuccess<User[]>(users, "Users fetched successfully", 200);
-  } catch (error) {
-    // Handle unexpected errors
-    return sendError(
-      "Failed to retrieve users",
-      ErrorCodes.INTERNAL_ERROR,
-      500,
-      error instanceof Error ? error.message : "Unknown error"
-    );
-  }
-}
-
-/**
- * POST /api/users
- *
- * Creates a new user in the system.
- * Validates input and returns error if validation fails.
- *
- * Request body:
- * {
- *   "name": "string" (required),
- *   "email": "string" (optional),
- *   "phone": "string" (optional)
- * }
- *
- * @param {NextRequest} request - The incoming request containing user data
- * @returns {Promise<NextResponse>} JSON response with created user or error
- * @status {201} Created - User successfully created
- * @status {400} Bad Request - Invalid input data
- *
- * Example success response (201):
- * {
- *   "success": true,
- *   "data": {
- *     "id": "4",
- *     "name": "Alice Brown",
- *     "email": "alice.brown@example.com",
- *     "phone": "+1122334455",
- *     "createdAt": "2024-12-15T10:00:00.000Z"
- *   }
- * }
- *
- * Example error response (400):
- * {
- *   "success": false,
- *   "error": "Name is required and must be a string"
- * }
- */
-export async function POST(request: NextRequest) {
+export async function GET(req: Request) {
   try {
-    // Parse request body
-    const body: unknown = await request.json();
+    // 1. Read Authorization header
+    const authHeader = req.headers.get("authorization");
 
     // Validate the input data using Zod schema
     // schema.parse() will throw ZodError if validation fails
