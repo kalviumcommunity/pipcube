@@ -645,3 +645,49 @@ app/
  ├── lib/
  │    ├── logger.ts
  │    └── errorHandler.ts
+
+# ✉️ Transactional Email Integration in Next.js (AWS SES / SendGrid)
+
+## 📌 Project Overview
+This project demonstrates how to integrate a **transactional email service** into a Next.js (App Router) application using **AWS Simple Email Service (SES)** or **SendGrid**.  
+Transactional emails are automatically triggered by backend events such as user signup, password reset requests, or security alerts.
+
+The implementation includes:
+- A secure email-sending API route
+- HTML email templates with personalization
+- Environment-based configuration
+- Logs proving successful delivery
+- Reflections on sandbox mode, rate limits, and bounce handling
+
+---
+
+## 🎯 Objectives
+- Configure AWS SES or SendGrid for transactional email delivery
+- Build a secure email-sending API using environment variables
+- Send at least one HTML-based transactional email
+- Log message IDs or headers to verify delivery
+- Understand rate limits, sandbox vs production, and bounce handling
+
+---
+
+## 🔧 Chosen Email Provider
+**Provider Used:** AWS SES / SendGrid  
+(Either provider can be used; this project supports both options.)
+
+### Comparison
+| Feature | AWS SES | SendGrid |
+|------|--------|---------|
+| Pricing | Pay-per-email | Free tier (100/day) |
+| Setup | Requires email/domain verification | Simple API key |
+| Best For | Backend automation | Rapid development |
+
+---
+
+## 🔐 Environment Configuration
+
+### AWS SES
+```env
+AWS_ACCESS_KEY_ID=your-access-key
+AWS_SECRET_ACCESS_KEY=your-secret-key
+AWS_REGION=ap-south-1
+SES_EMAIL_SENDER=no-reply@yourdomain.com
