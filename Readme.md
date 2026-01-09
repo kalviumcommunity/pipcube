@@ -238,3 +238,60 @@ All API responses follow this envelope:
   "data": {},
   "timestamp": "2026-01-08T07:50:00.000Z"
 }
+
+# 🔐 Secure User Authentication API
+
+## Overview
+This assignment implements a **secure authentication system** using **Next.js App Router**, **Prisma**, **PostgreSQL**, **bcrypt**, and **JWT**.  
+Users can sign up, log in, and access protected routes using token-based authentication.
+
+---
+
+## Objectives
+- Hash user passwords securely using **bcrypt**
+- Generate JWT tokens on successful login
+- Protect private routes using token verification
+- Understand token expiry and security best practices
+
+---
+
+## Tech Stack
+- Next.js (App Router)
+- TypeScript
+- Prisma ORM
+- PostgreSQL
+- bcrypt
+- JSON Web Tokens (JWT)
+
+---
+
+## API Endpoints
+
+### Signup
+- Hashes password before storing in database
+
+### Login
+- Verifies password
+- Generates JWT token (expires in 1 hour)
+
+### Protected Route
+- Requires `Authorization: Bearer <JWT_TOKEN>`
+
+---
+
+## Security Highlights
+- Passwords are never stored in plain text
+- JWT tokens are signed and time-limited
+- Protected routes validate tokens before access
+
+---
+
+## Token Storage (Concept)
+- `localStorage` → simple but less secure
+- `HttpOnly cookies` → recommended for production
+
+---
+
+## Conclusion
+This assignment demonstrates a **real-world authentication flow** using password hashing and token-based security, ensuring safe user access and data protection.
+
