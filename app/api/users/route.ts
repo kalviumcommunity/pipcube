@@ -4,10 +4,15 @@ import bcrypt from "bcrypt";
 import { createUserSchema } from "@/lib/schemas/userSchema";
 import { formatZodError } from "@/lib/schemas/zodErrorFormatter";
 import { ZodError } from "zod";
+import { handleError } from "@/lib/errorHandler";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+
+    // Simulate error check for POST
+    // We can't easily query params on POST body without parsing, but let's stick to GET for the simple simulation
+
     const validatedData = createUserSchema.parse(body);
 
     const existingUser = await db.user.findUnique({
@@ -46,6 +51,8 @@ export async function POST(req: Request) {
 
   } catch (error) {
     if (error instanceof ZodError) {
+      // We can use handleError here too but typically validation is 400, not 500.
+      // Keeping specific handling for expectation of previous tasks, but wrapping unhandled ones.
       return NextResponse.json(
         {
           error: "Validation Error",
@@ -54,18 +61,19 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-
-    return NextResponse.json(
-      { error: "Failed to create user" },
-      { status: 500 }
-    );
+    return handleError(error, 'POST /api/users');
   }
 }
 
 export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    if (searchParams.get('simulateError') === 'true') {
+      throw new Error("Simulated Database Error for Testing");
+    }
+
     const users = await db.user.findMany();
-    // Sanitize users to remove passwords (although mock DB keeps them)
+
     const sanitizedUsers = users.map(user => ({
       id: user.id,
       name: user.name,
@@ -80,6 +88,6 @@ export async function GET(req: Request) {
       data: sanitizedUsers
     });
   } catch (error) {
-    return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 });
+    return handleError(error, 'GET /api/users');
   }
 }
