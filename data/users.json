@@ -14,5 +14,21 @@
     "password": "$2b$10$oD/xQEuGsllfOr.Jm/1yGuOkyflvlwucpWt0NAe1IPq1BnKGfdGWa",
     "role": "ADMIN",
     "createdAt": "2026-01-09T09:09:50.440Z"
+  },
+  {
+    "id": "dba7q2x1l1",
+    "name": "Error Test User",
+    "email": "errtest1767950267069@example.com",
+    "password": "$2b$10$4XQz7igHRFl0jwy834t3keWAZ7bLbkRIzBGEWPMArajrwQnCiUuRG",
+    "role": "USER",
+    "createdAt": "2026-01-09T09:17:47.165Z"
+  },
+  {
+    "id": "qgt5qdw7u9l",
+    "name": "Error Test User",
+    "email": "errtest1767950324409@example.com",
+    "password": "$2b$10$UbrzuYSYGevxNMOBYUbh6OzCTg8zqnsO256NsG0fao4rTTTIyf4iu",
+    "role": "USER",
+    "createdAt": "2026-01-09T09:18:44.495Z"
   }
 ]

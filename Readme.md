@@ -614,3 +614,34 @@ This task focuses entirely on **authorization**.
 
 ## 🧩 User Roles
 User roles are stored in the database using Prisma.
+
+# 🛠️ Centralized Error Handling Middleware in Next.js
+
+## 📌 Project Overview
+This project implements a **centralized error handling mechanism** for a Next.js (App Router) application.  
+The goal is to catch, categorize, log, and respond to application errors in a **consistent, secure, and developer-friendly** way.
+
+Instead of handling errors separately in every route, a single reusable error handler ensures:
+- Uniform API error responses
+- Structured logs for easier debugging
+- Safe, minimal error messages for production users
+
+---
+
+## 🎯 Objectives
+- Build a reusable centralized error handler for API routes
+- Implement structured logging for all errors
+- Differentiate error responses between development and production
+- Improve debugging efficiency and user trust
+
+---
+
+## 📁 Project Structure
+```text
+app/
+ ├── api/
+ │    └── users/
+ │         └── route.ts
+ ├── lib/
+ │    ├── logger.ts
+ │    └── errorHandler.ts
