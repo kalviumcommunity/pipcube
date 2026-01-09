@@ -30,5 +30,21 @@
     "password": "$2b$10$UbrzuYSYGevxNMOBYUbh6OzCTg8zqnsO256NsG0fao4rTTTIyf4iu",
     "role": "USER",
     "createdAt": "2026-01-09T09:18:44.495Z"
+  },
+  {
+    "id": "s6ir6r9yjvn",
+    "name": "Redis Test User",
+    "email": "redistest1767950835428@example.com",
+    "password": "$2b$10$xE4Ejy7lf/EeRzuGThb3GuRG0pBA8rid/XSMvuGOPy5g6nKUEKbRS",
+    "role": "USER",
+    "createdAt": "2026-01-09T09:27:15.518Z"
+  },
+  {
+    "id": "e82n4j4kom",
+    "name": "New Cache User",
+    "email": "cache1767950879446@example.com",
+    "password": "$2b$10$OMlLkCdpd4snEAT0U3Q/VeWBQUhzYdQPMkTCFgs3PsCvApwwC0pSS",
+    "role": "USER",
+    "createdAt": "2026-01-09T09:27:59.595Z"
   }
 ]
