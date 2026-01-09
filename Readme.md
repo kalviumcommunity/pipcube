@@ -646,48 +646,33 @@ app/
  │    ├── logger.ts
  │    └── errorHandler.ts
 
-# ✉️ Transactional Email Integration in Next.js (AWS SES / SendGrid)
+# 🚀 Redis Caching Layer Integration in Next.js
 
 ## 📌 Project Overview
-This project demonstrates how to integrate a **transactional email service** into a Next.js (App Router) application using **AWS Simple Email Service (SES)** or **SendGrid**.  
-Transactional emails are automatically triggered by backend events such as user signup, password reset requests, or security alerts.
+This project demonstrates how to integrate **Redis as a caching layer** in a Next.js (App Router) application to improve API performance and reduce response latency.  
+By caching frequently requested data in memory, the application avoids repeated database calls and scales more efficiently under load.
 
-The implementation includes:
-- A secure email-sending API route
-- HTML email templates with personalization
-- Environment-based configuration
-- Logs proving successful delivery
-- Reflections on sandbox mode, rate limits, and bounce handling
+The implementation follows the **cache-aside (lazy loading) pattern**, includes **TTL (Time-To-Live)** policies, and applies **cache invalidation** to prevent stale data.
 
 ---
 
 ## 🎯 Objectives
-- Configure AWS SES or SendGrid for transactional email delivery
-- Build a secure email-sending API using environment variables
-- Send at least one HTML-based transactional email
-- Log message IDs or headers to verify delivery
-- Understand rate limits, sandbox vs production, and bounce handling
+- Connect a Next.js app to Redis using `ioredis`
+- Implement cache-aside logic for API responses
+- Apply TTL to automatically expire cached data
+- Invalidate cache when underlying data changes
+- Measure and demonstrate latency improvements
 
 ---
 
-## 🔧 Chosen Email Provider
-**Provider Used:** AWS SES / SendGrid  
-(Either provider can be used; this project supports both options.)
-
-### Comparison
-| Feature | AWS SES | SendGrid |
-|------|--------|---------|
-| Pricing | Pay-per-email | Free tier (100/day) |
-| Setup | Requires email/domain verification | Simple API key |
-| Best For | Backend automation | Rapid development |
-
----
-
-## 🔐 Environment Configuration
-
-### AWS SES
-```env
-AWS_ACCESS_KEY_ID=your-access-key
-AWS_SECRET_ACCESS_KEY=your-secret-key
-AWS_REGION=ap-south-1
-SES_EMAIL_SENDER=no-reply@yourdomain.com
+## 📁 Project Structure
+```text
+app/
+ ├── api/
+ │    ├── users/
+ │    │    └── route.ts
+ │    └── users/update/
+ │         └── route.ts
+ ├── lib/
+ │    ├── redis.ts
+ │    └── prisma.ts   (or database utility)
