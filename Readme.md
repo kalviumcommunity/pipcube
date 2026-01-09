@@ -645,3 +645,34 @@ app/
  ├── lib/
  │    ├── logger.ts
  │    └── errorHandler.ts
+
+# 🚀 Redis Caching Layer Integration in Next.js
+
+## 📌 Project Overview
+This project demonstrates how to integrate **Redis as a caching layer** in a Next.js (App Router) application to improve API performance and reduce response latency.  
+By caching frequently requested data in memory, the application avoids repeated database calls and scales more efficiently under load.
+
+The implementation follows the **cache-aside (lazy loading) pattern**, includes **TTL (Time-To-Live)** policies, and applies **cache invalidation** to prevent stale data.
+
+---
+
+## 🎯 Objectives
+- Connect a Next.js app to Redis using `ioredis`
+- Implement cache-aside logic for API responses
+- Apply TTL to automatically expire cached data
+- Invalidate cache when underlying data changes
+- Measure and demonstrate latency improvements
+
+---
+
+## 📁 Project Structure
+```text
+app/
+ ├── api/
+ │    ├── users/
+ │    │    └── route.ts
+ │    └── users/update/
+ │         └── route.ts
+ ├── lib/
+ │    ├── redis.ts
+ │    └── prisma.ts   (or database utility)

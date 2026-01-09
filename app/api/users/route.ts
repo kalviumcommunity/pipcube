@@ -5,13 +5,15 @@ import { createUserSchema } from "@/lib/schemas/userSchema";
 import { formatZodError } from "@/lib/schemas/zodErrorFormatter";
 import { ZodError } from "zod";
 import { handleError } from "@/lib/errorHandler";
+import redis from "@/lib/redis";
+import { logger } from "@/lib/logger";
+
+const USERS_CACHE_KEY = 'users:all';
+const CACHE_TTL = 60; // seconds
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-
-    // Simulate error check for POST
-    // We can't easily query params on POST body without parsing, but let's stick to GET for the simple simulation
 
     const validatedData = createUserSchema.parse(body);
 
@@ -37,6 +39,10 @@ export async function POST(req: Request) {
       },
     });
 
+    // Invalidate Cache
+    await redis.del(USERS_CACHE_KEY);
+    logger.info("Cache Invalidated", { key: USERS_CACHE_KEY });
+
     return NextResponse.json({
       success: true,
       message: "User created successfully",
@@ -51,8 +57,6 @@ export async function POST(req: Request) {
 
   } catch (error) {
     if (error instanceof ZodError) {
-      // We can use handleError here too but typically validation is 400, not 500.
-      // Keeping specific handling for expectation of previous tasks, but wrapping unhandled ones.
       return NextResponse.json(
         {
           error: "Validation Error",
@@ -72,6 +76,21 @@ export async function GET(req: Request) {
       throw new Error("Simulated Database Error for Testing");
     }
 
+    // 1. Check Redis Cache
+    const cachedUsers = await redis.get(USERS_CACHE_KEY);
+
+    if (cachedUsers) {
+      logger.info("Cache Hit", { key: USERS_CACHE_KEY });
+      return NextResponse.json({
+        success: true,
+        message: "Users retrieved successfully (Cached)",
+        data: JSON.parse(cachedUsers)
+      });
+    }
+
+    logger.info("Cache Miss", { key: USERS_CACHE_KEY });
+
+    // 2. Fetch from DB
     const users = await db.user.findMany();
 
     const sanitizedUsers = users.map(user => ({
@@ -81,6 +100,9 @@ export async function GET(req: Request) {
       role: user.role,
       createdAt: user.createdAt
     }));
+
+    // 3. Store in Redis
+    await redis.setex(USERS_CACHE_KEY, CACHE_TTL, JSON.stringify(sanitizedUsers));
 
     return NextResponse.json({
       success: true,
