@@ -1,7 +1,9 @@
-import Link from "next/link";
+
+import Link from 'next/link';
 
 export default function Home() {
   return (
+<<<<<<< HEAD
     <main className="relative min-h-screen flex items-center justify-center p-4 overflow-hidden">
       {/* Background Floating Elements */}
       <div className="absolute top-20 left-20 w-32 h-32 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-float" />
@@ -81,8 +83,36 @@ export default function Home() {
               Track <span className="ml-2 transition-transform group-hover:translate-x-1">→</span>
             </div>
           </Link>
-        </div>
+=======
+    <div className="flex flex-col items-center justify-center min-h-screen py-2">
+      <main className="flex flex-col items-center justify-center w-full flex-1 px-20 text-center">
+        <h1 className="text-6xl font-bold">
+          Welcome to <span className="text-blue-600">PIPcube</span>
+        </h1>
 
+        <p className="mt-3 text-2xl">
+          Complete Cancellation, Refund & Routing Demo
+        </p>
+
+        <div className="flex flex-wrap items-center justify-around max-w-4xl mt-6 sm:w-full">
+          <div className="p-6 mt-6 text-left border w-96 rounded-xl hover:text-blue-600 focus:text-blue-600">
+            <h3 className="text-2xl font-bold">Authentication &rarr;</h3>
+            <p className="mt-4 text-xl">
+              <Link href="/login" className="text-blue-500 underline">Login</Link> to access protected routes.
+            </p>
+          </div>
+
+          <div className="p-6 mt-6 text-left border w-96 rounded-xl hover:text-blue-600 focus:text-blue-600">
+            <h3 className="text-2xl font-bold">Protected Dashboard &rarr;</h3>
+            <p className="mt-4 text-xl">
+              View your <Link href="/dashboard" className="text-blue-500 underline">Dashboard</Link> (Requires Login).
+            </p>
+          </div>
+>>>>>>> 8ff36a2b6172432c742ade90c4b9bdb80d824737
+        </div>
+      </main>
+
+<<<<<<< HEAD
         {/* Info / Policy Section */}
         <div className="mt-12 grid md:grid-cols-2 gap-8 relative z-10">
           <div className="bg-white/50 rounded-2xl p-6 backdrop-blur-sm border border-white/60">
@@ -129,5 +159,11 @@ export default function Home() {
         </div>
       </div>
     </main>
+=======
+      <footer className="flex items-center justify-center w-full h-24 border-t">
+        Powered by Next.js App Router
+      </footer>
+    </div>
+>>>>>>> 8ff36a2b6172432c742ade90c4b9bdb80d824737
   );
 }
