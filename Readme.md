@@ -1,3 +1,6 @@
+## Problem Statement:
+*Intercity bus ticket cancellations and refunds are opaque and inconsistent. How could an open, transparent system bring trust and accountability to public transport?*
+
 ## VP 2.3 – Concept‑1: Advanced Data Fetching (SSG, SSR, ISR)
 
 ### Pages Implemented
