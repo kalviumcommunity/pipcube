@@ -1,0 +1,58 @@
+[
+  {
+    "id": "qxz0iquu55b",
+    "name": "Test User",
+    "email": "test1767949789478@example.com",
+    "password": "$2b$10$ryZkvQT/ECsNcPvEyicvU.2GgdIZ5sYBmb3UrEfSQHFMWE.GHlvMu",
+    "role": "USER",
+    "createdAt": "2026-01-09T09:09:49.861Z"
+  },
+  {
+    "id": "ifu4xa84gyt",
+    "name": "Admin User",
+    "email": "admin1767949790352@example.com",
+    "password": "$2b$10$oD/xQEuGsllfOr.Jm/1yGuOkyflvlwucpWt0NAe1IPq1BnKGfdGWa",
+    "role": "ADMIN",
+    "createdAt": "2026-01-09T09:09:50.440Z"
+  },
+  {
+    "id": "dba7q2x1l1",
+    "name": "Error Test User",
+    "email": "errtest1767950267069@example.com",
+    "password": "$2b$10$4XQz7igHRFl0jwy834t3keWAZ7bLbkRIzBGEWPMArajrwQnCiUuRG",
+    "role": "USER",
+    "createdAt": "2026-01-09T09:17:47.165Z"
+  },
+  {
+    "id": "qgt5qdw7u9l",
+    "name": "Error Test User",
+    "email": "errtest1767950324409@example.com",
+    "password": "$2b$10$UbrzuYSYGevxNMOBYUbh6OzCTg8zqnsO256NsG0fao4rTTTIyf4iu",
+    "role": "USER",
+    "createdAt": "2026-01-09T09:18:44.495Z"
+  },
+  {
+    "id": "s6ir6r9yjvn",
+    "name": "Redis Test User",
+    "email": "redistest1767950835428@example.com",
+    "password": "$2b$10$xE4Ejy7lf/EeRzuGThb3GuRG0pBA8rid/XSMvuGOPy5g6nKUEKbRS",
+    "role": "USER",
+    "createdAt": "2026-01-09T09:27:15.518Z"
+  },
+  {
+    "id": "e82n4j4kom",
+    "name": "New Cache User",
+    "email": "cache1767950879446@example.com",
+    "password": "$2b$10$OMlLkCdpd4snEAT0U3Q/VeWBQUhzYdQPMkTCFgs3PsCvApwwC0pSS",
+    "role": "USER",
+    "createdAt": "2026-01-09T09:27:59.595Z"
+  },
+  {
+    "id": "d6bj9d8q656",
+    "name": "Route Test",
+    "email": "route1767952500963@test.com",
+    "password": "$2b$10$HnVLd1/NzD0iWD3bVMNn4uVGpvQZGQiKy9tjHbLl5U6xYvFgjFfEi",
+    "role": "USER",
+    "createdAt": "2026-01-09T09:55:01.038Z"
+  }
+]

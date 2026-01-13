@@ -205,11 +205,17 @@ All services run on a shared bridge network and communicate using service names.
 ```bash
 docker-compose up --build
 
-GET    /api/users       → Fetch all users
-POST   /api/users       → Create a user
+GET    /api/users          → Fetch all users
+POST   /api/users          → Create a user
 
-GET    /api/bookings    → Fetch bookings (paginated)
-POST   /api/bookings   → Create booking
+GET    /api/tickets        → Fetch tickets (paginated)
+POST   /api/tickets        → Create ticket
+
+GET    /api/cancellations  → Fetch cancellations (paginated)
+POST   /api/cancellations  → Create cancellation request
+
+GET    /api/refunds        → Fetch refunds (paginated)
+POST   /api/refunds        → Process refund
 
 
 ## Global API Response Handler
@@ -241,3 +247,471 @@ All API responses follow this envelope:
   "data": {},
   "timestamp": "2026-01-08T07:50:00.000Z"
 }
+## Input Validation with Zod
+
+This project uses **Zod** for runtime type validation and schema validation across all API endpoints. Zod ensures that incoming data matches expected types and formats before processing, preventing invalid data from entering the system and providing clear, actionable error messages.
+
+---
+
+### Why Input Validation is Important
+
+Input validation is a critical security and reliability practice that:
+
+- **Prevents Invalid Data**: Stops malformed or incorrect data from entering the system
+- **Improves Security**: Protects against injection attacks and data corruption
+- **Enhances Developer Experience**: Provides clear, structured error messages
+- **Type Safety**: Ensures TypeScript types match runtime data
+- **Reduces Bugs**: Catches errors early before they cause downstream issues
+
+Without proper validation, APIs can crash unexpectedly, store invalid data, or expose security vulnerabilities.
+
+---
+
+### Schema Structure
+
+All validation schemas are organized in `/lib/schemas/`:
+
+```
+lib/schemas/
+├── userSchema.ts          # User creation validation
+├── ticketSchema.ts         # Ticket (booking) creation validation
+├── cancellationSchema.ts   # Cancellation request validation
+├── refundSchema.ts        # Refund processing validation
+└── zodErrorFormatter.ts   # Error formatting utility
+```
+
+---
+
+### Example Schemas
+
+#### User Schema (`lib/schemas/userSchema.ts`)
+
+```typescript
+import { z } from "zod";
+
+export const createUserSchema = z.object({
+  name: z
+    .string({
+      required_error: "Name is required",
+      invalid_type_error: "Name must be a string",
+    })
+    .min(2, "Name must be at least 2 characters long")
+    .trim(),
+  email: z
+    .string()
+    .email("Invalid email format")
+    .optional()
+    .or(z.literal("")),
+  phone: z.string().optional().or(z.literal("")),
+});
+
+export type CreateUserSchema = z.infer<typeof createUserSchema>;
+```
+
+#### Ticket Schema (`lib/schemas/ticketSchema.ts`)
+
+```typescript
+import { z } from "zod";
+
+export const createTicketSchema = z.object({
+  userId: z
+    .string({
+      required_error: "userId is required",
+      invalid_type_error: "userId must be a string",
+    })
+    .min(1, "userId cannot be empty"),
+  tripId: z
+    .string({
+      required_error: "tripId is required",
+      invalid_type_error: "tripId must be a string",
+    })
+    .min(1, "tripId cannot be empty"),
+  seatNumber: z
+    .string({
+      required_error: "seatNumber is required",
+      invalid_type_error: "seatNumber must be a string",
+    })
+    .min(1, "seatNumber cannot be empty")
+    .trim(),
+});
+
+export type CreateTicketSchema = z.infer<typeof createTicketSchema>;
+```
+
+---
+
+### Usage in API Routes
+
+All POST routes use Zod validation:
+
+```typescript
+import { createUserSchema } from "@/lib/schemas/userSchema";
+import { formatZodError } from "@/lib/schemas/zodErrorFormatter";
+import { ZodError } from "zod";
+
+export async function POST(request: NextRequest) {
+  try {
+    const body: unknown = await request.json();
+    
+    // Validate using Zod schema
+    // This throws ZodError if validation fails
+    const validatedData = createUserSchema.parse(body);
+    
+    // Use validatedData - TypeScript knows the types are correct
+    const newUser = createUser({
+      name: validatedData.name,
+      email: validatedData.email || undefined,
+    });
+    
+    return sendSuccess(newUser, "User created successfully", 201);
+  } catch (error) {
+    // Handle Zod validation errors
+    if (error instanceof ZodError) {
+      const validationErrors = formatZodError(error);
+      return sendError(
+        "Validation Error",
+        ErrorCodes.VALIDATION_ERROR,
+        400,
+        { errors: validationErrors }
+      );
+    }
+    // Handle other errors...
+  }
+}
+```
+
+---
+
+### Example API Calls
+
+#### ✅ Passing Example: Create User
+
+```bash
+curl -X POST http://localhost:3000/api/users \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "John Doe",
+    "email": "john.doe@example.com",
+    "phone": "+1234567890"
+  }'
+```
+
+**Response (201 Created):**
+```json
+{
+  "success": true,
+  "message": "User created successfully",
+  "data": {
+    "id": "4",
+    "name": "John Doe",
+    "email": "john.doe@example.com",
+    "phone": "+1234567890",
+    "createdAt": "2026-01-08T10:00:00.000Z"
+  },
+  "timestamp": "2026-01-08T10:00:00.000Z"
+}
+```
+
+#### ❌ Failing Example: Invalid User Data
+
+```bash
+curl -X POST http://localhost:3000/api/users \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "A",
+    "email": "invalid-email"
+  }'
+```
+
+**Response (400 Bad Request):**
+```json
+{
+  "success": false,
+  "message": "Validation Error",
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "details": {
+      "errors": [
+        {
+          "field": "name",
+          "message": "Name must be at least 2 characters long"
+        },
+        {
+          "field": "email",
+          "message": "Invalid email format"
+        }
+      ]
+    }
+  },
+  "timestamp": "2026-01-08T10:00:00.000Z"
+}
+```
+
+#### ✅ Passing Example: Create Ticket
+
+```bash
+curl -X POST http://localhost:3000/api/tickets \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userId": "1",
+    "tripId": "1",
+    "seatNumber": "A12"
+  }'
+```
+
+**Response (201 Created):**
+```json
+{
+  "success": true,
+  "message": "Ticket created successfully",
+  "data": {
+    "id": "6",
+    "userId": "1",
+    "tripId": "1",
+    "seatNumber": "A12",
+    "price": 45.99,
+    "status": "confirmed",
+    "createdAt": "2026-01-08T10:00:00.000Z"
+  },
+  "timestamp": "2026-01-08T10:00:00.000Z"
+}
+```
+
+#### ❌ Failing Example: Missing Required Fields
+
+```bash
+curl -X POST http://localhost:3000/api/tickets \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userId": "1"
+  }'
+```
+
+**Response (400 Bad Request):**
+```json
+{
+  "success": false,
+  "message": "Validation Error",
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "details": {
+      "errors": [
+        {
+          "field": "tripId",
+          "message": "tripId is required"
+        },
+        {
+          "field": "seatNumber",
+          "message": "seatNumber is required"
+        }
+      ]
+    }
+  },
+  "timestamp": "2026-01-08T10:00:00.000Z"
+}
+```
+
+---
+
+### Schema Reuse
+
+Schemas are defined once and reused across the application:
+
+1. **Type Inference**: Use `z.infer<typeof schema>` to generate TypeScript types automatically
+2. **Consistent Validation**: Same validation rules applied everywhere
+3. **Single Source of Truth**: Update validation rules in one place
+4. **Frontend Sharing**: Schemas can be shared with frontend for client-side validation
+
+Example:
+```typescript
+// Define schema once
+const createUserSchema = z.object({ ... });
+
+// Infer TypeScript type
+type CreateUserSchema = z.infer<typeof createUserSchema>;
+
+// Use in API route
+const validatedData = createUserSchema.parse(body);
+```
+
+---
+
+### Reflection: Maintainability and Teamwork
+
+**Maintainability:**
+
+Using Zod for validation significantly improves code maintainability:
+
+- **Centralized Schemas**: All validation logic lives in `/lib/schemas/`, making it easy to find and update
+- **Type Safety**: TypeScript types are automatically inferred from schemas, reducing type mismatches
+- **Self-Documenting**: Schemas serve as documentation for API requirements
+- **Easy Updates**: Changing validation rules requires updating only the schema file
+
+**Teamwork:**
+
+Zod validation enhances team collaboration:
+
+- **Clear Error Messages**: Developers get specific, actionable error messages pointing to exact fields
+- **Consistent Patterns**: All routes follow the same validation pattern, reducing cognitive load
+- **Reduced Code Review Time**: Validation logic is standardized and easy to review
+- **Onboarding**: New team members can understand validation requirements by reading schema files
+
+**Developer Experience (DX):**
+
+- **IntelliSense Support**: TypeScript autocomplete works perfectly with inferred types
+- **Early Error Detection**: Validation errors are caught before data reaches business logic
+- **Structured Errors**: Error responses include field-level details, making debugging faster
+
+**Debugging:**
+
+- **Structured Error Format**: All validation errors follow the same `{ field, message }` structure
+- **Multiple Errors**: Zod returns all validation errors at once, not just the first one
+- **Error Tracing**: Error messages include the exact field path (e.g., `user.address.city`)
+
+**Observability:**
+
+- **Consistent Error Codes**: All validation errors use `VALIDATION_ERROR` code
+- **Timestamp Tracking**: Every error response includes a timestamp for log correlation
+- **Error Details**: Structured error details make it easy to aggregate and analyze validation failures in monitoring tools
+
+---
+
+### Error Codes
+
+| Code | Description | HTTP Status |
+|------|-------------|-------------|
+| `VALIDATION_ERROR` | Input validation failed | 400 |
+| `NOT_FOUND` | Resource not found | 404 |
+| `DATABASE_FAILURE` | Database operation failed | 500 |
+| `INTERNAL_ERROR` | Unexpected server error | 500 |
+
+---
+
+### Installation
+
+```bash
+npm install zod
+```
+
+All schemas are ready to use. No additional configuration required.
+
+# 🔐 Role-Based Access Control (RBAC) with Next.js Middleware
+
+## 📌 Project Overview
+This project implements **authorization middleware** in a Next.js application using **JWT-based Role-Based Access Control (RBAC)**.  
+The goal is to ensure that authenticated users can only access routes permitted by their assigned roles, following the **principle of least privilege**.
+
+Authentication verifies *who the user is*, while authorization determines *what the user is allowed to do*.  
+This task focuses entirely on **authorization**.
+
+---
+
+## 🎯 Objectives
+- Validate JWTs for protected API routes
+- Implement role-based access control (admin vs user)
+- Protect sensitive routes using centralized middleware
+- Enforce least-privilege access
+- Build a reusable and extensible authorization system
+
+---
+
+## 🧩 User Roles
+User roles are stored in the database using Prisma.
+
+# 🛠️ Centralized Error Handling Middleware in Next.js
+
+## 📌 Project Overview
+This project implements a **centralized error handling mechanism** for a Next.js (App Router) application.  
+The goal is to catch, categorize, log, and respond to application errors in a **consistent, secure, and developer-friendly** way.
+
+Instead of handling errors separately in every route, a single reusable error handler ensures:
+- Uniform API error responses
+- Structured logs for easier debugging
+- Safe, minimal error messages for production users
+
+---
+
+## 🎯 Objectives
+- Build a reusable centralized error handler for API routes
+- Implement structured logging for all errors
+- Differentiate error responses between development and production
+- Improve debugging efficiency and user trust
+
+---
+
+## 📁 Project Structure
+```text
+app/
+ ├── api/
+ │    └── users/
+ │         └── route.ts
+ ├── lib/
+ │    ├── logger.ts
+ │    └── errorHandler.ts
+
+# 🚀 Redis Caching Layer Integration in Next.js
+
+## 📌 Project Overview
+This project demonstrates how to integrate **Redis as a caching layer** in a Next.js (App Router) application to improve API performance and reduce response latency.  
+By caching frequently requested data in memory, the application avoids repeated database calls and scales more efficiently under load.
+
+The implementation follows the **cache-aside (lazy loading) pattern**, includes **TTL (Time-To-Live)** policies, and applies **cache invalidation** to prevent stale data.
+
+---
+
+## 🎯 Objectives
+- Connect a Next.js app to Redis using `ioredis`
+- Implement cache-aside logic for API responses
+- Apply TTL to automatically expire cached data
+- Invalidate cache when underlying data changes
+- Measure and demonstrate latency improvements
+
+---
+
+## 📁 Project Structure
+```text
+app/
+ ├── api/
+ │    ├── users/
+ │    │    └── route.ts
+ │    └── users/update/
+ │         └── route.ts
+ ├── lib/
+ │    ├── redis.ts
+ │    └── prisma.ts   (or database utility)
+
+# 🧭 Routing with Next.js App Router (Public, Protected & Dynamic Routes)
+
+## 📌 Project Overview
+This project demonstrates **page routing using the Next.js App Router (Next.js 13+)**.  
+It implements a complete routing system with **public pages**, **protected pages guarded by middleware**, **dynamic routes**, **navigation**, and **custom error handling**.
+
+The goal is to show how modern Next.js applications structure routes, secure sensitive pages, and dynamically render content based on URL parameters while keeping SEO and user experience in mind.
+
+---
+
+## 🎯 Objectives
+- Implement public and protected routes using the App Router
+- Secure private routes using middleware and JWT-based authentication
+- Use dynamic routing with URL parameters (`[id]`)
+- Add navigation and shared layout
+- Handle invalid routes with a custom 404 page
+- Reflect on routing design, SEO, and user experience
+
+---
+
+## 📁 Route Structure
+```text
+app/
+ ├── page.tsx                → Home (Public)
+ ├── login/
+ │    └── page.tsx           → Login (Public)
+ ├── dashboard/
+ │    └── page.tsx           → Dashboard (Protected)
+ ├── users/
+ │    ├── page.tsx           → Users List (Protected)
+ │    └── [id]/
+ │         └── page.tsx      → Dynamic User Profile
+ ├── not-found.tsx           → Custom 404 Page
+ └── layout.tsx              → Global Layout & Navigation
+middleware.ts                → Route Protection Logic

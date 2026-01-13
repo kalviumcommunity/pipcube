@@ -1,147 +1,115 @@
-/**
- * RESTful API Route: /api/users
- *
- * This route handles user-related operations for the intercity bus ticket system.
- * It follows REST conventions using HTTP methods:
- * - GET: Retrieve a list of all users
- * - POST: Create a new user
- *
- * All responses use the global response handler to ensure a consistent shape.
- *
- * @module app/api/users/route
- */
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import bcrypt from "bcrypt";
+import { createUserSchema } from "@/lib/schemas/userSchema";
+import { formatZodError } from "@/lib/schemas/zodErrorFormatter";
+import { ZodError } from "zod";
+import { handleError } from "@/lib/errorHandler";
+import redis from "@/lib/redis";
+import { logger } from "@/lib/logger";
 
-import type { NextRequest } from "next/server";
-import type { User, CreateUserRequest } from "@/types/api";
-import { getUsers, createUser } from "@/lib/mock-data";
-import { validateCreateUser } from "@/lib/validation";
-import { sendSuccess, sendError } from "@/lib/responseHandler";
-import { ErrorCodes } from "@/lib/errorCodes";
+const USERS_CACHE_KEY = 'users:all';
+const CACHE_TTL = 60; // seconds
 
-/**
- * GET /api/users
- *
- * Retrieves a list of all users in the system.
- * This endpoint returns all users without pagination (for simplicity).
- *
- * @returns {Promise<NextResponse>} JSON response containing array of users
- * @status {200} Success - Returns list of users
- *
- * Example response:
- * {
- *   "success": true,
- *   "data": [
- *     {
- *       "id": "1",
- *       "name": "John Doe",
- *       "email": "john.doe@example.com",
- *       "phone": "+1234567890",
- *       "createdAt": "2024-12-15T10:00:00.000Z"
- *     }
- *   ]
- * }
- */
-export async function GET() {
+export async function POST(req: Request) {
   try {
-    // Retrieve all users from mock data
-    const users = getUsers();
+    const body = await req.json();
 
-    // Return success response with users data
-    return sendSuccess<User[]>(users, "Users fetched successfully", 200);
+    const validatedData = createUserSchema.parse(body);
+
+    const existingUser = await db.user.findUnique({
+      where: { email: validatedData.email },
+    });
+
+    if (existingUser) {
+      return NextResponse.json(
+        { error: "User already exists" },
+        { status: 409 }
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(validatedData.password, 10);
+
+    const newUser = await db.user.create({
+      data: {
+        name: validatedData.name,
+        email: validatedData.email || "",
+        password: hashedPassword,
+        role: validatedData.role === 'ADMIN' ? 'ADMIN' : 'USER',
+      },
+    });
+
+    // Invalidate Cache
+    await redis.del(USERS_CACHE_KEY);
+    logger.info("Cache Invalidated", { key: USERS_CACHE_KEY });
+
+    return NextResponse.json({
+      success: true,
+      message: "User created successfully",
+      data: {
+        id: newUser.id,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+        createdAt: newUser.createdAt
+      }
+    }, { status: 201 });
+
   } catch (error) {
-    // Handle unexpected errors
-    return sendError(
-      "Failed to retrieve users",
-      ErrorCodes.INTERNAL_ERROR,
-      500,
-      error instanceof Error ? error.message : "Unknown error"
-    );
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        {
+          error: "Validation Error",
+          details: formatZodError(error)
+        },
+        { status: 400 }
+      );
+    }
+    return handleError(error, 'POST /api/users');
   }
 }
 
-/**
- * POST /api/users
- *
- * Creates a new user in the system.
- * Validates input and returns error if validation fails.
- *
- * Request body:
- * {
- *   "name": "string" (required),
- *   "email": "string" (optional),
- *   "phone": "string" (optional)
- * }
- *
- * @param {NextRequest} request - The incoming request containing user data
- * @returns {Promise<NextResponse>} JSON response with created user or error
- * @status {201} Created - User successfully created
- * @status {400} Bad Request - Invalid input data
- *
- * Example success response (201):
- * {
- *   "success": true,
- *   "data": {
- *     "id": "4",
- *     "name": "Alice Brown",
- *     "email": "alice.brown@example.com",
- *     "phone": "+1122334455",
- *     "createdAt": "2024-12-15T10:00:00.000Z"
- *   }
- * }
- *
- * Example error response (400):
- * {
- *   "success": false,
- *   "error": "Name is required and must be a string"
- * }
- */
-export async function POST(request: NextRequest) {
+export async function GET(req: Request) {
   try {
-    // Parse request body
-    const body: unknown = await request.json();
-
-    // Validate the input data
-    const validation = validateCreateUser(body);
-    if (!validation.isValid) {
-      // Return 400 Bad Request if validation fails
-      return sendError(
-        validation.error || "Validation failed",
-        ErrorCodes.VALIDATION_ERROR,
-        400
-      );
+    const { searchParams } = new URL(req.url);
+    if (searchParams.get('simulateError') === 'true') {
+      throw new Error("Simulated Database Error for Testing");
     }
 
-    // Type assertion after validation
-    const userData = body as CreateUserRequest;
+    // 1. Check Redis Cache
+    const cachedUsers = await redis.get(USERS_CACHE_KEY);
 
-    // Create the new user
-    const newUser = createUser({
-      name: userData.name.trim(),
-      email: userData.email?.trim(),
-      phone: userData.phone?.trim(),
+    if (cachedUsers) {
+      logger.info("Cache Hit", { key: USERS_CACHE_KEY });
+      return NextResponse.json({
+        success: true,
+        message: "Users retrieved successfully (Cached)",
+        data: JSON.parse(cachedUsers)
+      });
+    }
+
+    logger.info("Cache Miss", { key: USERS_CACHE_KEY });
+
+    // 2. Fetch from DB
+    const users = await db.user.findMany();
+
+    const sanitizedUsers = users.map(user => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      createdAt: user.createdAt
+    }));
+
+    // 3. Store in Redis
+    await redis.setex(USERS_CACHE_KEY, CACHE_TTL, JSON.stringify(sanitizedUsers));
+
+    return NextResponse.json({
+      success: true,
+      message: "Users retrieved successfully",
+      data: sanitizedUsers
     });
-
-    // Return success response with created user (201 Created)
-    return sendSuccess<User>(
-      newUser,
-      "User created successfully",
-      201
-    );
   } catch (error) {
-    // Handle JSON parsing errors or other unexpected errors
-    if (error instanceof SyntaxError) {
-      return sendError(
-        "Invalid JSON in request body",
-        ErrorCodes.VALIDATION_ERROR,
-        400
-      );
-    }
-
-    return sendError(
-      "Failed to create user",
-      ErrorCodes.INTERNAL_ERROR,
-      500,
-      error instanceof Error ? error.message : "Unknown error"
-    );
+    return handleError(error, 'GET /api/users');
   }
 }
